@@ -1,6 +1,6 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { processImage } = require('./image-processor.cjs');
+const { MAX_IMAGE_BYTES, detectImageType, processImage } = require('./image-processor.cjs');
 const { R2StorageProvider } = require('./storage/r2-storage-provider.cjs');
 
 const ASSET_ID_PATTERN = /^[a-zA-Z0-9-]+$/;
@@ -210,11 +210,9 @@ class AssetService {
     });
   }
 
-  buildObjectKey(config, processedHash, extension, createdAt) {
-    const date = new Date(createdAt);
-    const year = String(date.getUTCFullYear());
-    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-    return `${config.objectPrefix}/${year}/${month}/${processedHash}.${extension}`;
+  buildObjectKey(config, processedHash, extension) {
+    const shard = processedHash.slice(0, 2);
+    return `${config.objectPrefix}/assets/${shard}/${processedHash}.${extension}`;
   }
 
   async ingest(input) {
@@ -239,6 +237,32 @@ class AssetService {
     return this.enqueue(() => this.processAndUpload(input.articleId, input.assetId, buffer, input.upload !== false));
   }
 
+  async persistOriginal(articleId, assetId, buffer) {
+    if (buffer.length === 0) {
+      throw createAssetError('IMAGE_DECODE_FAILED', '图片文件为空。');
+    }
+    if (buffer.length > MAX_IMAGE_BYTES) {
+      throw createAssetError('IMAGE_TOO_LARGE', '单张图片不能超过 20 MB。');
+    }
+    const detected = detectImageType(buffer);
+    if (!detected) {
+      throw createAssetError('INVALID_IMAGE_TYPE', '仅支持 PNG、JPEG、WebP 和 GIF 图片。');
+    }
+
+    const paths = await this.ensureAssetDirectories(articleId);
+    const originalFileName = `${assetId}.${detected.extension}`;
+    const originalAbsolutePath = path.join(paths.originalsDirectory, originalFileName);
+    const originalRelativePath = path.join('assets', 'originals', originalFileName).replace(/\\/g, '/');
+    await fs.writeFile(originalAbsolutePath, buffer);
+    await this.updateRecord(articleId, assetId, {
+      originalPath: originalRelativePath,
+      mimeType: detected.mimeType,
+      extension: detected.extension,
+      originalSize: buffer.length
+    });
+    return { detected, paths, originalRelativePath };
+  }
+
   async processAndUpload(articleId, assetId, buffer, shouldUpload = true) {
     await this.updateRecord(articleId, assetId, {
       status: 'processing',
@@ -247,6 +271,7 @@ class AssetService {
     });
 
     try {
+      const { paths, originalRelativePath } = await this.persistOriginal(articleId, assetId, buffer);
       let config = null;
       try {
         config = await this.credentialService.getPrivateConfig();
@@ -260,18 +285,12 @@ class AssetService {
         jpegQuality: 82,
         webpQuality: 82
       });
-      const paths = await this.ensureAssetDirectories(articleId);
-      const originalFileName = `${assetId}.${result.inputExtension}`;
       const processedFileName = `${result.processedHash}.${result.outputExtension}`;
-      const originalAbsolutePath = path.join(paths.originalsDirectory, originalFileName);
       const processedAbsolutePath = path.join(paths.processedDirectory, processedFileName);
-      const originalRelativePath = path.join('assets', 'originals', originalFileName).replace(/\\/g, '/');
       const processedRelativePath = path.join('assets', 'processed', processedFileName).replace(/\\/g, '/');
-
-      await Promise.all([
-        fs.writeFile(originalAbsolutePath, result.originalBuffer),
-        pathExists(processedAbsolutePath) ? Promise.resolve() : fs.writeFile(processedAbsolutePath, result.processedBuffer)
-      ]);
+      if (!(await pathExists(processedAbsolutePath))) {
+        await fs.writeFile(processedAbsolutePath, result.processedBuffer);
+      }
 
       let record = await this.updateRecord(articleId, assetId, {
         originalPath: originalRelativePath,
@@ -314,7 +333,7 @@ class AssetService {
       }
 
       record = await this.updateRecord(articleId, assetId, { status: 'uploading' });
-      const objectKey = this.buildObjectKey(config, result.processedHash, result.outputExtension, record.createdAt);
+      const objectKey = this.buildObjectKey(config, result.processedHash, result.outputExtension);
       const uploaded = await new R2StorageProvider(config).upload({
         objectKey,
         body: result.processedBuffer,

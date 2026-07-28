@@ -23,6 +23,17 @@ function writeBrowserArticles(articles: ArticleDocument[]) {
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(articles));
 }
 
+function toSummary(article: ArticleDocument): ArticleSummary {
+  return {
+    id: article.id,
+    title: article.title,
+    themeId: article.themeId,
+    version: article.version,
+    createdAt: article.createdAt,
+    updatedAt: article.updatedAt
+  };
+}
+
 function createBrowserBridge(): WorkspaceBridge {
   return {
     isDesktop: false,
@@ -46,7 +57,7 @@ function createBrowserBridge(): WorkspaceBridge {
     articles: {
       async list(): Promise<ArticleSummary[]> {
         return readBrowserArticles()
-          .map(({ markdown: _markdown, ...summary }) => summary)
+          .map(toSummary)
           .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
       },
       async create(input: CreateArticleInput = {}): Promise<ArticleDocument> {

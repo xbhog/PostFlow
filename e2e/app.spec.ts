@@ -4,6 +4,16 @@ function buildLongMarkdown() {
     return Array.from({ length: 120 }, (_, index) => `## Section ${index + 1}\n\n这是第 ${index + 1} 段内容，用来验证编辑器和预览区的滚动同步是否稳定。\n\n`).join('');
 }
 
+async function createArticleAndOpenEditor(page: import('@playwright/test').Page) {
+    await page.goto('/');
+    await page.getByRole('button', { name: /新建文章|创建第一篇文章/ }).first().click();
+    await expect(page.getByTestId('editor-input')).toBeVisible();
+}
+
+async function waitForArticleSaved(page: import('@playwright/test').Page) {
+    await expect(page.getByText('已保存', { exact: true })).toBeVisible({ timeout: 5000 });
+}
+
 async function waitForScrollableArea(page: import('@playwright/test').Page, testId: string) {
     await expect
         .poll(
@@ -78,9 +88,26 @@ async function scrollAndWaitForSync(
         .toBeLessThan(0.12);
 }
 
+test('creates, saves and reopens a browser article', async ({ page }) => {
+    await createArticleAndOpenEditor(page);
+
+    const titleInput = page.getByLabel('文章标题');
+    const editor = page.getByTestId('editor-input');
+    await titleInput.fill('DraftDock 本地文章测试');
+    await editor.fill('# 本地文章\n\n这段内容应该自动保存。');
+    await waitForArticleSaved(page);
+
+    await page.getByRole('button', { name: /文章列表/ }).click();
+    await expect(page.getByText('DraftDock 本地文章测试')).toBeVisible();
+
+    await page.getByText('DraftDock 本地文章测试').click();
+    await expect(titleInput).toHaveValue('DraftDock 本地文章测试');
+    await expect(editor).toHaveValue('# 本地文章\n\n这段内容应该自动保存。');
+});
+
 test('keeps the copy button visible on mobile', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto('/');
+    await createArticleAndOpenEditor(page);
 
     await page.getByTestId('tab-preview').click();
     const copyButton = page.locator('[data-testid="copy-button"]:visible');
@@ -94,7 +121,7 @@ test('keeps the copy button visible on mobile', async ({ page }) => {
 });
 
 test('renders bold text with punctuation without leaking markdown markers', async ({ page }) => {
-    await page.goto('/');
+    await createArticleAndOpenEditor(page);
 
     const editor = page.getByTestId('editor-input');
     await editor.fill('2025年初，伦敦黄金市场的一个月拆借利率一度升至**5%**。');
@@ -111,7 +138,7 @@ for (const device of [
 ] as const) {
     test(`syncs editor and ${device.label} preview scrolling in both directions`, async ({ page }) => {
         await page.setViewportSize({ width: 1440, height: 900 });
-        await page.goto('/');
+        await createArticleAndOpenEditor(page);
 
         const editor = page.getByTestId('editor-input');
         await editor.fill(buildLongMarkdown());

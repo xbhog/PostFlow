@@ -1,7 +1,13 @@
 {
-  "name": "raphael-publish",
-  "private": true,
-  "version": "1.0.0",
+  "name": "draftdock",
+  "private": false,
+  "version": "0.1.0",
+  "description": "A local-first AI writing and publishing workspace for WeChat Official Accounts.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xbhog/draftdock.git"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",

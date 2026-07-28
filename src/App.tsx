@@ -480,9 +480,7 @@ export default function App() {
     };
 
     const ensureAssetsReady = () => {
-        const notReady = containsAssetPlaceholder(markdownInput)
-            || assets.some((asset) => asset.status !== 'success');
-        if (!notReady) return true;
+        if (!containsAssetPlaceholder(markdownInput)) return true;
         setAssetQueueOpen(true);
         alert('文章中仍有未完成或失败的图片，请处理后再继续。');
         return false;
@@ -529,13 +527,16 @@ export default function App() {
         cloneContainer.style.background = document.documentElement.classList.contains('dark') ? '#000000' : '#ffffff';
         cloneContainer.appendChild(clonedElement);
         document.body.appendChild(cloneContainer);
+        const cleanup = () => {
+            if (cloneContainer.isConnected) document.body.removeChild(cloneContainer);
+        };
         html2pdf().set({
             margin: 10,
             filename: `DraftDock_Article_${Date.now()}.pdf`,
             image: { type: 'jpeg' as const, quality: 0.98 },
             html2canvas: { scale: 2, useCORS: true, letterRendering: true },
             jsPDF: { unit: 'mm' as const, format: 'a4', orientation: 'portrait' as const }
-        }).from(cloneContainer).save().finally(() => document.body.removeChild(cloneContainer));
+        }).from(cloneContainer).save().then(cleanup, cleanup);
     };
 
     const handleImageClick = useCallback((info: {

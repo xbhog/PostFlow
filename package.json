@@ -18,7 +18,7 @@
     "build:desktop": "pnpm build && electron-builder",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test",
+    "test:e2e": "concurrently -k -s command-1 \"vite --host 127.0.0.1 --port 4173 --strictPort\" \"wait-on http://127.0.0.1:4173 && playwright test\"",
     "lint": "eslint .",
     "preview": "vite preview"
   },

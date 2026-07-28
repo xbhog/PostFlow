@@ -41,7 +41,7 @@ function findDataUrlImage(text: string, imageSrc: string, imageAlt: string): Ima
   if (imageAlt) {
     const escapedSig = escapeRegex(signature.substring(signature.indexOf(',') + 1));
     const altPattern = new RegExp(
-      `!\\[${escapeRegex(imageAlt)}\\]\\(data:image\\/[^;]+;base64,${escapedSig}[^\)]*\\)`,
+      `!\\[${escapeRegex(imageAlt)}\\]\\(data:image\\/[^;]+;base64,${escapedSig}[^)]*\\)`,
       'g'
     );
 

@@ -1,5 +1,4 @@
 import TurndownService from 'turndown';
-// @ts-ignore
 import { gfm } from 'turndown-plugin-gfm';
 
 const turndownService = new TurndownService({
@@ -17,10 +16,11 @@ turndownService.use(gfm);
 // Rule to optimize images
 turndownService.addRule('image', {
     filter: 'img',
-    replacement: (_content, node: any) => {
-        const alt = node.alt || '图片';
-        const src = (node.getAttribute?.('src') || node.src || '').trim();
-        const title = (node.title || '').replace(/"/g, '\\"');
+    replacement: (_content, node: HTMLElement) => {
+        const image = node as HTMLImageElement;
+        const alt = image.alt || '图片';
+        const src = (image.getAttribute('src') || image.src || '').trim();
+        const title = (image.title || '').replace(/"/g, '\\"');
 
         if (!src) return '';
 
@@ -66,7 +66,7 @@ function isMarkdown(text: string): boolean {
         /\*[^*\n]+\*/,
         /\[[^\]]+\]\([^)]+\)/,
         /!\[[^\]]*\]\([^)]+\)/,
-        /^[\*\-\+]\s+/m,
+        /^[-*+]\s+/m,
         /^\d+\.\s+/m,
         /^>\s+/m,
         /`[^`]+`/,

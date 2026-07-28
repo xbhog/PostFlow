@@ -1,7 +1,7 @@
 {
   "name": "draftdock",
   "private": false,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A local-first AI writing and publishing workspace for WeChat Official Accounts.",
   "license": "MIT",
   "repository": {
@@ -23,6 +23,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1095.0",
     "@types/turndown": "^5.0.6",
     "framer-motion": "^11.11.11",
     "highlight.js": "^11.10.0",
@@ -31,6 +32,7 @@
     "markdown-it": "^14.1.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "sharp": "^0.35.3",
     "turndown": "^7.2.2",
     "turndown-plugin-gfm": "^1.0.2"
   },
@@ -65,6 +67,10 @@
     "appId": "com.draftdock.app",
     "productName": "DraftDock",
     "asar": true,
+    "asarUnpack": [
+      "node_modules/sharp/**/*",
+      "node_modules/@img/**/*"
+    ],
     "files": [
       "dist/**/*",
       "electron/**/*",

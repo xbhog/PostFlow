@@ -74,6 +74,7 @@ export default function EditorPanel({
 
             <input
                 ref={fileInputRef}
+                data-testid="image-file-input"
                 type="file"
                 accept="image/png,image/jpeg,image/webp,image/gif"
                 multiple
@@ -93,15 +94,15 @@ export default function EditorPanel({
                 </div>
 
                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <button type="button" onClick={() => fileInputRef.current?.click()} className="inline-flex items-center gap-1.5 rounded-lg bg-black px-3 py-2 text-xs font-medium text-white hover:opacity-80 dark:bg-white dark:text-black">
+                    <button data-testid="insert-image-button" type="button" onClick={() => fileInputRef.current?.click()} className="inline-flex items-center gap-1.5 rounded-lg bg-black px-3 py-2 text-xs font-medium text-white hover:opacity-80 dark:bg-white dark:text-black">
                         <ImagePlus size={14} />插入图片
                     </button>
-                    <button type="button" onClick={onOpenAssetQueue} className="inline-flex items-center gap-1.5 rounded-lg border border-black/10 px-3 py-2 text-xs font-medium hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10">
+                    <button data-testid="asset-queue-button" type="button" onClick={onOpenAssetQueue} className="inline-flex items-center gap-1.5 rounded-lg border border-black/10 px-3 py-2 text-xs font-medium hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10">
                         <Images size={14} />图片 {assetCount}
                         {activeAssetCount > 0 && <span className="text-[#0066cc] dark:text-[#0a84ff]">处理中 {activeAssetCount}</span>}
                         {failedAssetCount > 0 && <span className="text-red-600 dark:text-red-400">失败 {failedAssetCount}</span>}
                     </button>
-                    <button type="button" onClick={onOpenStorageSettings} className="inline-flex items-center gap-1.5 rounded-lg border border-black/10 px-3 py-2 text-xs font-medium hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10">
+                    <button data-testid="storage-settings-button" type="button" onClick={onOpenStorageSettings} className="inline-flex items-center gap-1.5 rounded-lg border border-black/10 px-3 py-2 text-xs font-medium hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10">
                         <Settings2 size={14} />图片存储
                     </button>
                 </div>

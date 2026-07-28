@@ -80,7 +80,7 @@ async function scrollAndWaitForSync(
                     }
 
                     return Math.abs(targetRatio - expectedRatio);
-                }, [sourceId, targetId, targetRatio] as const);
+                }, [sourceTestId, targetTestId, targetRatio] as const);
             },
             {
                 timeout: 8000,

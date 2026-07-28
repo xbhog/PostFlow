@@ -11,7 +11,9 @@ async function createArticleAndOpenEditor(page: import('@playwright/test').Page)
 }
 
 async function waitForArticleSaved(page: import('@playwright/test').Page) {
-    await expect(page.getByText('已保存', { exact: true })).toBeVisible({ timeout: 5000 });
+    const saveStatus = page.getByTestId('save-status');
+    await expect(saveStatus).toContainText('V2', { timeout: 5000 });
+    await expect(saveStatus).toContainText('已保存');
 }
 
 async function waitForScrollableArea(page: import('@playwright/test').Page, testId: string) {
@@ -78,7 +80,7 @@ async function scrollAndWaitForSync(
                     }
 
                     return Math.abs(targetRatio - expectedRatio);
-                }, [sourceTestId, targetTestId, targetRatio] as const);
+                }, [sourceId, targetId, targetRatio] as const);
             },
             {
                 timeout: 8000,

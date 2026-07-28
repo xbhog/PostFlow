@@ -1,3 +1,5 @@
+import type { AssetBridge } from './assets';
+
 export interface ArticleSummary {
   id: string;
   title: string;
@@ -29,7 +31,7 @@ export interface WorkspaceSelectionResult {
   workspacePath: string;
 }
 
-export interface WorkspaceBridge {
+export interface WorkspaceBridge extends AssetBridge {
   isDesktop: boolean;
   workspace: {
     getPath(): Promise<string>;

@@ -62,7 +62,10 @@ export default function ArticleEditorBar({
         className="min-w-0 flex-1 border-0 bg-transparent px-2 py-1 text-base font-semibold text-black outline-none placeholder:text-[#a1a1a6] dark:text-white"
       />
 
-      <div className={`flex shrink-0 items-center gap-1.5 text-xs ${status.className}`}>
+      <div
+        data-testid="save-status"
+        className={`flex shrink-0 items-center gap-1.5 text-xs ${status.className}`}
+      >
         <StatusIcon size={14} className={saveStatus === 'saving' ? 'animate-spin' : ''} />
         <span className="hidden sm:inline">{status.label}</span>
         <span className="text-[#86868b]">V{version}</span>

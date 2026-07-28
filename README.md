@@ -1,89 +1,158 @@
-# Raphael Publish - 公众号排版大师
+# DraftDock
 
-专为**微信公众号**与**内容创作者**打造的现代 Markdown 排版引擎。
+本地优先的 AI 公众号写作、排版与发布工作台。
 
-> **在线体验**：[https://publish.raphael.app](https://publish.raphael.app)
+DraftDock 希望把原本分散的内容生产流程整合到一个应用中：
 
-![Raphael Publish 截图](media/screenshot.png)
+```text
+本地写作
+→ 图片上传到自己的对象存储
+→ 选择公众号排版主题
+→ AI 生成摘要并检查文章
+→ 复制到公众号或同步草稿箱
+```
 
+> 项目当前处于早期开发阶段。现阶段已经可以作为 Markdown 公众号排版器使用，本地文章管理、Cloudflare R2、AI 辅助和公众号草稿同步正在按路线图开发。
 
-## 功能特性
+![DraftDock 界面预览](media/screenshot.png)
 
+## 当前能力
 
-### 魔法粘贴
+- Markdown 实时编辑与预览
+- 从飞书、Notion、Word 和网页粘贴富文本并转换为 Markdown
+- 直接粘贴截图或剪贴板图片
+- 30 套公众号排版主题
+- 手机、平板和桌面预览
+- 公众号兼容 HTML 转换
+- 一键复制富文本到公众号后台
+- HTML 和 PDF 导出
+- 编辑区与预览区滚动同步
+- 点击预览内容定位到对应 Markdown
 
-**从飞书、Notion、Word 甚至任意网页复制富文本**，粘贴瞬间自动净化为纯净 Markdown。无需手写 Markdown 语法，粘贴即用。
-同时支持**直接粘贴截图或图片（Ctrl/Cmd + V）**，自动插入 Markdown 图片语法。
+## 计划新增
 
-### 30 套高定样式
+### 本地文章管理
 
-告别同质化白底模板，提供 30 套精心打磨的视觉主题：
+- 本地工作目录
+- Markdown 文件保存
+- 文章列表和搜索
+- 自动保存与版本状态
 
-- **经典**：Mac 纯净白、Claude 燕麦色、微信原生、NYT 纽约时报、Medium 博客风、Stripe 硅谷风、飞书效率蓝、Linear 暗夜、Retro 复古羊皮纸、Bloomberg 终端机
-- **潮流**：Notion、GitHub、少数派、Dracula、Nord、樱花、深海、薄荷、日落、Monokai
-- **更多风格**：Solarized、Cyberpunk、水墨、薰衣草、密林、冰川、咖啡、Bauhaus、赤铜、彩虹糖
+### 图片自托管
 
-每套主题在背景色、字体、标题、代码块、引用、表格等元素上都有独立设计，切换即可感受完全不同的排版风格。
+- Cloudflare R2 配置
+- 粘贴图片后自动压缩和上传
+- SHA-256 去重
+- 图片资产记录
+- 自动插入公开图片 URL
 
-<p align="center">
-  <a href="media/demo.mp4">
-    <img src="media/record.gif" alt="Raphael Publish 功能演示（点击播放 MP4）" />
-  </a>
-</p>
-<p align="center">
-  <a href="https://publish.raphael.app">
-    <img src="https://img.shields.io/badge/%E2%96%B6%20Live%20Preview-Visit%20Pages-2ea44f?style=for-the-badge" alt="Live Preview on Pages" />
-  </a>
-  <a href="media/demo.mp4">
-    <img src="https://img.shields.io/badge/%E2%AC%87%20Download%20Demo-MP4-0969da?style=for-the-badge" alt="Download MP4 demo" />
-  </a>
-</p>
-<p align="center">
-  <sub>点击上方动图或按钮，可直接跳转页面体验或观看 MP4 高清演示。</sub>
-</p>
+### AI 辅助发布
 
-### 一键复制到公众号
+- 标题候选生成
+- 公众号摘要生成
+- 文章结构和移动端阅读检查
+- 图片说明与 Alt 文本建议
+- 所有修改由用户确认后应用
 
-点击「复制到公众号」按钮，直接粘贴到公众号后台：
+### 微信公众号发布
 
-- **所有外链图片自动转 Base64，不会出现"此图片来自第三方"的报错**
-- 背景色、圆角、间距等样式精准还原
-- 列表和表格经过底层 DOM 重塑，在微信中不会塌陷
-
-### 多图排版
-
-支持多图并排网格布局，通过 `wechatCompat` 引擎确保在微信公众号中完美呈现，不会被折断。
-
-### 多端预览
-
-编辑时实时预览，支持手机 (480px)、平板 (768px)、桌面 (PC) 三种视图切换，所见即所得。
-
-### 导出
-
-支持导出为 PDF 和 HTML 文件，适合存档、邮件发送或网页发布。
+- 作者、摘要、封面和原文链接设置
+- 公众号账号配置
+- 一键同步到公众号草稿箱
+- 同步历史和本地版本状态
+- 保留“复制到公众号”作为无 API 权限时的兜底方式
 
 ## 技术栈
 
-- **React 18** + **TypeScript**
-- **Vite 5** 构建
-- **Tailwind CSS 3** 样式
-- **markdown-it** Markdown 解析
-- **highlight.js** 代码高亮
-- **turndown** 富文本转 Markdown（魔法粘贴）
-- **html2pdf.js** PDF 导出
-- **framer-motion** 动画
+当前排版内核：
+
+- React 18
+- TypeScript
+- Vite 5
+- Tailwind CSS 3
+- markdown-it
+- highlight.js
+- Turndown
+- html2pdf.js
+- Framer Motion
+- Vitest
+- Playwright
+
+桌面版计划使用：
+
+- Electron
+- electron-builder
+- SQLite / better-sqlite3
+- Electron safeStorage
+- Sharp
+- AWS SDK for JavaScript v3（Cloudflare R2）
+- OpenAI 兼容 API
 
 ## 本地开发
 
+### 环境要求
+
+- Node.js 20+
+- pnpm 9+
+
+### 安装
+
 ```bash
+git clone https://github.com/xbhog/draftdock.git
+cd draftdock
 pnpm install
+```
+
+### 启动开发环境
+
+```bash
 pnpm dev
 ```
 
-## 构建部署
+### 构建
 
 ```bash
 pnpm build
 ```
 
-构建产物输出到 `dist/` 目录，可部署到 GitHub Pages 或任意静态托管服务。
+构建产物输出到 `dist/`。
+
+### 测试
+
+```bash
+pnpm test
+pnpm test:e2e
+```
+
+## 项目定位
+
+DraftDock 不是一个自动生成整篇文章的 AI 套壳，而是一个完整的内容发布工作流：
+
+- 确定性程序负责文件保存、Markdown 渲染、图片处理、对象存储和发布操作
+- AI 负责标题、摘要和结构检查等需要语言理解的环节
+- 用户始终保留最终修改和发布决定权
+- 文章和凭证默认保存在本地
+
+## 开源来源
+
+DraftDock 基于 [Raphael Publish](https://github.com/liuxiaopai-ai/raphael-publish) 二次开发。
+
+当前复用并改造了上游项目的：
+
+- Markdown 渲染
+- 富文本转 Markdown
+- 公众号主题系统
+- 微信兼容转换
+- 多端预览
+- 富文本复制
+- HTML / PDF 导出
+
+DraftDock 新增和计划实现的重点是：本地文章管理、图片自托管、AI 发布检查、凭证管理以及公众号草稿同步。
+
+详细归属信息见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)。
+
+## License
+
+本项目遵循 [MIT License](LICENSE)。
+
+使用、修改和分发本项目时，请保留原项目及本项目中的版权和许可证声明。

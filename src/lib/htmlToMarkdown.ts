@@ -13,7 +13,6 @@ const turndownService = new TurndownService({
 
 turndownService.use(gfm);
 
-// Rule to optimize images
 turndownService.addRule('image', {
     filter: 'img',
     replacement: (_content, node: HTMLElement) => {
@@ -21,17 +20,13 @@ turndownService.addRule('image', {
         const alt = image.alt || '图片';
         const src = (image.getAttribute('src') || image.src || '').trim();
         const title = (image.title || '').replace(/"/g, '\\"');
-
         if (!src) return '';
-
-        // Preserve full data URLs. Truncating them produces broken pasted images.
         return `![${alt}](${src}${title ? ` "${title}"` : ''})\n`;
     }
 });
 
 function isIDEFormattedHTML(htmlData: string, textData: string): boolean {
     if (!htmlData || !textData) return false;
-
     const ideSignatures = [
         /<meta\s+charset=['"]utf-8['"]/i,
         /<div\s+class=["']ace_line["']/,
@@ -41,21 +36,13 @@ function isIDEFormattedHTML(htmlData: string, textData: string): boolean {
             const hasSemanticTags = /<(?:p|h[1-6]|strong|em|ul|ol|li|blockquote)[\s>]/i.test(html);
             return hasDivSpan && !hasSemanticTags;
         },
-        (html: string) => {
-            const strippedHtml = html.replace(/<[^>]+>/g, '').trim();
-            return strippedHtml === textData.trim();
-        }
+        (html: string) => html.replace(/<[^>]+>/g, '').trim() === textData.trim()
     ];
 
-    let matchCount = 0;
-    for (const signature of ideSignatures) {
-        if (typeof signature === 'function') {
-            if (signature(htmlData)) matchCount++;
-        } else if (signature.test(htmlData)) {
-            matchCount++;
-        }
-    }
-    return matchCount >= 2;
+    return ideSignatures.reduce((count, signature) => {
+        if (typeof signature === 'function') return count + (signature(htmlData) ? 1 : 0);
+        return count + (signature.test(htmlData) ? 1 : 0);
+    }, 0) >= 2;
 }
 
 function isMarkdown(text: string): boolean {
@@ -83,9 +70,7 @@ function getClipboardImageFiles(clipboardData: DataTransfer): File[] {
         .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
         .map((item) => item.getAsFile())
         .filter((file): file is File => Boolean(file));
-
     if (fromItems.length > 0) return fromItems;
-
     return Array.from(clipboardData.files || []).filter((file) => file.type.startsWith('image/'));
 }
 
@@ -116,9 +101,15 @@ export function insertAtSelection(
     }, 0);
 }
 
+export type ClipboardImageHandler = (
+    files: File[],
+    textarea: HTMLTextAreaElement
+) => void | Promise<void>;
+
 export function handleSmartPaste(
     e: React.ClipboardEvent<HTMLTextAreaElement>,
-    setMarkdownInput: (val: string) => void
+    setMarkdownInput: (val: string) => void,
+    onImageFiles?: ClipboardImageHandler
 ): void {
     const clipboardData = e.clipboardData;
     if (!clipboardData) return;
@@ -130,6 +121,13 @@ export function handleSmartPaste(
     if (imageFiles.length > 0) {
         e.preventDefault();
         const textarea = e.currentTarget;
+        if (onImageFiles) {
+            Promise.resolve(onImageFiles(imageFiles, textarea)).catch((error) => {
+                console.error('Clipboard image ingestion failed:', error);
+                alert(error instanceof Error ? error.message : '粘贴图片失败，请重试');
+            });
+            return;
+        }
 
         Promise.all(imageFiles.map(fileToDataUrl))
             .then((dataUrls) => {
@@ -137,12 +135,10 @@ export function handleSmartPaste(
                     .filter(Boolean)
                     .map((src, index) => `![图片${dataUrls.length > 1 ? ` ${index + 1}` : ''}](${src})`)
                     .join('\n\n');
-
-                if (!markdownImages) return;
-                insertAtSelection(textarea, markdownImages, setMarkdownInput);
+                if (markdownImages) insertAtSelection(textarea, markdownImages, setMarkdownInput);
             })
-            .catch((err) => {
-                console.error('Clipboard image conversion failed:', err);
+            .catch((error) => {
+                console.error('Clipboard image conversion failed:', error);
                 alert('粘贴图片失败，请重试');
             });
         return;
@@ -153,19 +149,13 @@ export function handleSmartPaste(
         return;
     }
 
-    const isFromIDE = isIDEFormattedHTML(htmlData, textData);
-    if (isFromIDE && textData && isMarkdown(textData)) {
-        return;
-    }
+    if (isIDEFormattedHTML(htmlData, textData) && textData && isMarkdown(textData)) return;
 
     if (htmlData && htmlData.trim() !== '') {
         const hasPreTag = /<pre[\s>]/.test(htmlData);
         const hasCodeTag = /<code[\s>]/.test(htmlData);
         const isMainlyCode = (hasPreTag || hasCodeTag) && !htmlData.includes('<p') && !htmlData.includes('<div');
-
-        if (isMainlyCode) {
-            return;
-        }
+        if (isMainlyCode) return;
 
         if (htmlData.includes('file:///') || htmlData.includes('src="file:')) {
             e.preventDefault();
@@ -176,14 +166,10 @@ export function handleSmartPaste(
         try {
             let markdown = turndownService.turndown(htmlData);
             markdown = markdown.replace(/\n{3,}/g, '\n\n');
-
-            const textarea = e.currentTarget;
-            insertAtSelection(textarea, markdown, setMarkdownInput);
-        } catch (err) {
-            console.error('HTML to Markdown conversion failed:', err);
-            // Fallback to text
-            const textarea = e.currentTarget;
-            insertAtSelection(textarea, textData, setMarkdownInput);
+            insertAtSelection(e.currentTarget, markdown, setMarkdownInput);
+        } catch (error) {
+            console.error('HTML to Markdown conversion failed:', error);
+            insertAtSelection(e.currentTarget, textData, setMarkdownInput);
         }
     } else if (textData && isMarkdown(textData)) {
         return;

@@ -85,13 +85,14 @@ class AssetService {
     const previous = this.manifestLocks.get(articleId) || Promise.resolve();
     let release;
     const current = new Promise((resolve) => { release = resolve; });
-    this.manifestLocks.set(articleId, previous.then(() => current));
+    const tail = previous.then(() => current);
+    this.manifestLocks.set(articleId, tail);
     await previous;
     try {
       return await action();
     } finally {
       release();
-      if (this.manifestLocks.get(articleId) === current) this.manifestLocks.delete(articleId);
+      if (this.manifestLocks.get(articleId) === tail) this.manifestLocks.delete(articleId);
     }
   }
 
@@ -129,10 +130,7 @@ class AssetService {
     try {
       const raw = await fs.readFile(paths.manifestPath, 'utf8');
       const parsed = JSON.parse(raw);
-      return {
-        version: 1,
-        assets: Array.isArray(parsed.assets) ? parsed.assets : []
-      };
+      return { version: 1, assets: Array.isArray(parsed.assets) ? parsed.assets : [] };
     } catch (error) {
       if (error.code === 'ENOENT') return { version: 1, assets: [] };
       throw createAssetError('LOCAL_WRITE_FAILED', '图片资产清单无法读取。', error);
@@ -150,6 +148,13 @@ class AssetService {
     } catch (error) {
       throw createAssetError('LOCAL_WRITE_FAILED', '图片资产清单保存失败。', error);
     }
+  }
+
+  async getAssetsSnapshot(articleId) {
+    return this.withManifestLock(articleId, async () => {
+      const manifest = await this.readManifest(articleId);
+      return [...manifest.assets].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+    });
   }
 
   async addRecord(record) {
@@ -175,6 +180,7 @@ class AssetService {
         ...patch,
         updatedAt: new Date().toISOString()
       };
+      Object.keys(updated).forEach((key) => updated[key] === undefined && delete updated[key]);
       manifest.assets[index] = updated;
       await this.writeManifest(articleId, manifest);
       this.emit(updated);
@@ -200,7 +206,7 @@ class AssetService {
         return asset;
       });
       if (changed) await this.writeManifest(articleId, manifest);
-      return manifest.assets.sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+      return [...manifest.assets].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
     });
   }
 
@@ -214,10 +220,9 @@ class AssetService {
   async ingest(input) {
     this.validateIds(input?.articleId, input?.assetId);
     if (!input?.bytes) throw createAssetError('IMAGE_DECODE_FAILED', '没有收到图片数据。');
-
     const buffer = Buffer.from(input.bytes);
     const now = new Date().toISOString();
-    const queuedRecord = {
+    await this.addRecord({
       id: input.assetId,
       articleId: input.articleId,
       sourceType: ['clipboard', 'drop', 'picker'].includes(input.sourceType) ? input.sourceType : 'clipboard',
@@ -230,9 +235,7 @@ class AssetService {
       status: 'queued',
       createdAt: now,
       updatedAt: now
-    };
-
-    await this.addRecord(queuedRecord);
+    });
     return this.enqueue(() => this.processAndUpload(input.articleId, input.assetId, buffer, input.upload !== false));
   }
 
@@ -251,13 +254,12 @@ class AssetService {
         if (shouldUpload && error.code !== 'STORAGE_NOT_CONFIGURED') throw error;
       }
 
-      const processingOptions = config || {
+      const result = await processImage(buffer, config || {
         optimizeImages: true,
         maxWidth: 2560,
         jpegQuality: 82,
         webpQuality: 82
-      };
-      const result = await processImage(buffer, processingOptions);
+      });
       const paths = await this.ensureAssetDirectories(articleId);
       const originalFileName = `${assetId}.${result.inputExtension}`;
       const processedFileName = `${result.processedHash}.${result.outputExtension}`;
@@ -268,9 +270,7 @@ class AssetService {
 
       await Promise.all([
         fs.writeFile(originalAbsolutePath, result.originalBuffer),
-        pathExists(processedAbsolutePath)
-          ? Promise.resolve()
-          : fs.writeFile(processedAbsolutePath, result.processedBuffer)
+        pathExists(processedAbsolutePath) ? Promise.resolve() : fs.writeFile(processedAbsolutePath, result.processedBuffer)
       ]);
 
       let record = await this.updateRecord(articleId, assetId, {
@@ -290,8 +290,7 @@ class AssetService {
         processedSize: result.processedSize
       });
 
-      const allAssets = await this.list(articleId);
-      const reusable = allAssets.find((asset) => asset.id !== assetId
+      const reusable = (await this.getAssetsSnapshot(articleId)).find((asset) => asset.id !== assetId
         && asset.processedHash === result.processedHash
         && asset.status === 'success'
         && asset.publicUrl);
@@ -300,7 +299,9 @@ class AssetService {
           status: 'success',
           objectKey: reusable.objectKey,
           publicUrl: reusable.publicUrl,
-          reused: true
+          reused: true,
+          errorCode: undefined,
+          errorMessage: undefined
         });
       }
 
@@ -314,8 +315,7 @@ class AssetService {
 
       record = await this.updateRecord(articleId, assetId, { status: 'uploading' });
       const objectKey = this.buildObjectKey(config, result.processedHash, result.outputExtension, record.createdAt);
-      const provider = new R2StorageProvider(config);
-      const uploaded = await provider.upload({
+      const uploaded = await new R2StorageProvider(config).upload({
         objectKey,
         body: result.processedBuffer,
         contentType: result.outputMimeType
@@ -330,24 +330,23 @@ class AssetService {
         errorMessage: undefined
       });
     } catch (error) {
-      const userError = toUserError(error);
       return this.updateRecord(articleId, assetId, {
         status: 'failed',
-        ...userError
+        ...toUserError(error)
       });
     }
   }
 
   async retry(articleId, assetId) {
     this.validateIds(articleId, assetId);
-    const assets = await this.list(articleId);
-    const asset = assets.find((item) => item.id === assetId);
+    const asset = (await this.getAssetsSnapshot(articleId)).find((item) => item.id === assetId);
     if (!asset) throw createAssetError('ASSET_NOT_FOUND', '未找到图片资产。');
     if (!asset.originalPath) throw createAssetError('ASSET_SOURCE_MISSING', '本地原图不存在，无法重试。');
 
     const paths = this.getPaths(articleId);
     const sourcePath = path.resolve(paths.articleDirectory, asset.originalPath);
-    if (!sourcePath.startsWith(path.resolve(paths.articleDirectory))) {
+    const relativePath = path.relative(path.resolve(paths.articleDirectory), sourcePath);
+    if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
       throw createAssetError('ASSET_SOURCE_MISSING', '图片路径无效。');
     }
 
@@ -361,17 +360,21 @@ class AssetService {
   }
 
   async retryAll(articleId) {
-    const assets = await this.list(articleId);
+    const assets = await this.getAssetsSnapshot(articleId);
     const retryable = assets.filter((asset) => ['failed', 'interrupted'].includes(asset.status) && asset.originalPath);
     return Promise.all(retryable.map((asset) => this.retry(articleId, asset.id)));
   }
 
   async getRevealPath(articleId, assetId) {
-    const assets = await this.list(articleId);
-    const asset = assets.find((item) => item.id === assetId);
+    const asset = (await this.getAssetsSnapshot(articleId)).find((item) => item.id === assetId);
     if (!asset?.originalPath) throw createAssetError('ASSET_NOT_FOUND', '未找到本地图片。');
     const paths = this.getPaths(articleId);
-    return path.resolve(paths.articleDirectory, asset.originalPath);
+    const sourcePath = path.resolve(paths.articleDirectory, asset.originalPath);
+    const relativePath = path.relative(path.resolve(paths.articleDirectory), sourcePath);
+    if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+      throw createAssetError('ASSET_NOT_FOUND', '本地图片路径无效。');
+    }
+    return sourcePath;
   }
 }
 

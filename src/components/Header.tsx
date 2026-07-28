@@ -11,22 +11,24 @@ export default function Header({ themeMode, onToggleTheme }: HeaderProps) {
         <header className="glass flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 sticky top-0 z-[100]">
             <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-[8px] flex items-center justify-center bg-black dark:bg-white shadow-[0_2px_8px_rgba(0,0,0,0.15)] dark:shadow-[0_2px_12px_rgba(255,255,255,0.15)]">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M16.5 7.5L5 19H10.5C13.5376 19 16 16.5376 16 13.5C16 10.4624 13.5376 8 10.5 8H8.5V11.5L16.5 7.5Z" fill="var(--color-fg)" className="fill-white dark:fill-black" />
-                        <path d="M8.5 4H10.5C15.7467 4 20 8.25329 20 13.5C20 18.7467 15.7467 23 10.5 23H4V4H8.5Z" fill="none" strokeWidth="2.5" stroke="currentColor" className="text-white dark:text-black" />
-                        <path d="M4 11.5H8.5" strokeWidth="2.5" strokeLinecap="round" stroke="currentColor" className="text-white dark:text-black" />
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path d="M6 4H12.5C16.6421 4 20 7.35786 20 11.5C20 15.6421 16.6421 19 12.5 19H6V4Z" fill="none" strokeWidth="2.3" stroke="currentColor" className="text-white dark:text-black" />
+                        <path d="M9 8H12.25C14.0449 8 15.5 9.45507 15.5 11.25C15.5 13.0449 14.0449 14.5 12.25 14.5H9V8Z" fill="currentColor" className="text-white dark:text-black" />
                     </svg>
                 </div>
-                <span className="font-bold text-lg tracking-tight text-black dark:text-white">Raphael Publish<span className="hidden sm:inline"> - 公众号排版大师</span></span>
+                <span className="font-bold text-lg tracking-tight text-black dark:text-white">
+                    DraftDock<span className="hidden sm:inline"> - 本地 AI 公众号发布工作台</span>
+                </span>
             </div>
 
             <div className="flex items-center gap-4">
                 <motion.a
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    href="https://github.com/liuxiaopai-ai/raphael-publish"
+                    href="https://github.com/xbhog/draftdock"
                     target="_blank"
                     rel="noopener noreferrer"
+                    aria-label="打开 DraftDock GitHub 仓库"
                     className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
                 >
                     <Github size={20} />
@@ -35,6 +37,7 @@ export default function Header({ themeMode, onToggleTheme }: HeaderProps) {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={onToggleTheme}
+                    aria-label={themeMode === 'light' ? '切换到深色模式' : '切换到浅色模式'}
                     className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
                 >
                     {themeMode === 'light' ? <Moon size={20} /> : <Sun size={20} />}

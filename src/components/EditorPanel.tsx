@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { ImagePlus, Images, Settings2, Wand2 } from 'lucide-react';
 import { handleSmartPaste } from '../lib/htmlToMarkdown';
 import type { AssetSourceType } from '../types/assets';
@@ -10,7 +10,6 @@ interface EditorPanelProps {
     onEditorScroll: () => void;
     scrollSyncEnabled: boolean;
     onImageFiles(files: File[], textarea: HTMLTextAreaElement, sourceType: AssetSourceType): void | Promise<void>;
-    onSelectImages(): void;
     onOpenStorageSettings(): void;
     onOpenAssetQueue(): void;
     assetCount: number;
@@ -26,7 +25,6 @@ export default function EditorPanel({
     onEditorScroll,
     scrollSyncEnabled,
     onImageFiles,
-    onSelectImages,
     onOpenStorageSettings,
     onOpenAssetQueue,
     assetCount,
@@ -34,6 +32,8 @@ export default function EditorPanel({
     activeAssetCount,
     isDesktop
 }: EditorPanelProps) {
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
     const onPaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
         handleSmartPaste(event, onInputChange, (files, textarea) => onImageFiles(files, textarea, 'clipboard'));
     };
@@ -45,6 +45,13 @@ export default function EditorPanel({
         const images = files.filter((file) => file.type.startsWith('image/'));
         if (images.length !== files.length) alert('DraftDock 当前只支持拖入图片文件。');
         if (images.length > 0) void onImageFiles(images, event.currentTarget, 'drop');
+    };
+
+    const onFileSelection = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(event.target.files || []);
+        const textarea = editorScrollRef.current;
+        if (files.length > 0 && textarea) void onImageFiles(files, textarea, 'picker');
+        event.target.value = '';
     };
 
     return (
@@ -65,6 +72,15 @@ export default function EditorPanel({
                 spellCheck={false}
             />
 
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                multiple
+                className="hidden"
+                onChange={onFileSelection}
+            />
+
             <div className="flex-shrink-0 border-t border-[#00000010] bg-[#fbfbfd]/70 px-4 py-3 backdrop-blur-md dark:border-[#ffffff10] dark:bg-[#1c1c1e]/70 sm:px-6">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-2">
@@ -77,7 +93,7 @@ export default function EditorPanel({
                 </div>
 
                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <button type="button" onClick={onSelectImages} className="inline-flex items-center gap-1.5 rounded-lg bg-black px-3 py-2 text-xs font-medium text-white hover:opacity-80 dark:bg-white dark:text-black">
+                    <button type="button" onClick={() => fileInputRef.current?.click()} className="inline-flex items-center gap-1.5 rounded-lg bg-black px-3 py-2 text-xs font-medium text-white hover:opacity-80 dark:bg-white dark:text-black">
                         <ImagePlus size={14} />插入图片
                     </button>
                     <button type="button" onClick={onOpenAssetQueue} className="inline-flex items-center gap-1.5 rounded-lg border border-black/10 px-3 py-2 text-xs font-medium hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10">

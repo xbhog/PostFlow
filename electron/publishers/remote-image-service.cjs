@@ -21,6 +21,10 @@ function isPrivateIpv4(address) {
 
 function isPrivateIpv6(address) {
   const normalized = address.toLowerCase();
+  if (normalized.startsWith('::ffff:')) {
+    const mapped = normalized.slice('::ffff:'.length);
+    if (net.isIP(mapped) === 4) return isPrivateIpv4(mapped);
+  }
   return normalized === '::1'
     || normalized === '::'
     || normalized.startsWith('fc')

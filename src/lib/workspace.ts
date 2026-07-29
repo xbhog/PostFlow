@@ -12,10 +12,18 @@ import type {
   PublicStorageConfig,
   SaveStorageConfigInput
 } from '../types/assets';
+import type {
+  CreatePublishRecordInput,
+  PublicWeChatAccount,
+  PublishRecord,
+  SaveWeChatAccountInput
+} from '../types/wechat';
 
 const ARTICLE_STORAGE_KEY = 'draftdock:browser-articles:v1';
 const ASSET_STORAGE_KEY = 'draftdock:browser-assets:v1';
 const STORAGE_CONFIG_KEY = 'draftdock:browser-storage-config:v1';
+const WECHAT_ACCOUNTS_KEY = 'draftdock:browser-wechat-accounts:v1';
+const PUBLISH_RECORDS_KEY = 'draftdock:browser-publish-records:v1';
 const assetListeners = new Set<(event: AssetProgressEvent) => void>();
 
 const DEFAULT_MOCK_CONFIG: PublicStorageConfig = {
@@ -66,6 +74,26 @@ function readBrowserAssets(): Record<string, AssetRecord[]> {
 
 function writeBrowserAssets(assets: Record<string, AssetRecord[]>) {
   writeJson(ASSET_STORAGE_KEY, assets);
+}
+
+function readBrowserWeChatAccounts(): PublicWeChatAccount[] {
+  const parsed = readJson<unknown>(WECHAT_ACCOUNTS_KEY, []);
+  return Array.isArray(parsed) ? parsed as PublicWeChatAccount[] : [];
+}
+
+function writeBrowserWeChatAccounts(accounts: PublicWeChatAccount[]) {
+  writeJson(WECHAT_ACCOUNTS_KEY, accounts);
+}
+
+function readBrowserPublishRecords(): Record<string, PublishRecord[]> {
+  const parsed = readJson<unknown>(PUBLISH_RECORDS_KEY, {});
+  return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+    ? parsed as Record<string, PublishRecord[]>
+    : {};
+}
+
+function writeBrowserPublishRecords(records: Record<string, PublishRecord[]>) {
+  writeJson(PUBLISH_RECORDS_KEY, records);
 }
 
 function emitAsset(asset: AssetRecord) {
@@ -253,6 +281,9 @@ function createBrowserBridge(): WorkspaceBridge {
         const assets = readBrowserAssets();
         delete assets[articleId];
         writeBrowserAssets(assets);
+        const records = readBrowserPublishRecords();
+        delete records[articleId];
+        writeBrowserPublishRecords(records);
         return { id: articleId };
       }
     },
@@ -325,6 +356,84 @@ function createBrowserBridge(): WorkspaceBridge {
       onProgress(callback) {
         assetListeners.add(callback);
         return () => assetListeners.delete(callback);
+      }
+    },
+    wechatAccounts: {
+      async list() {
+        return readBrowserWeChatAccounts();
+      },
+      async save(input: SaveWeChatAccountInput) {
+        const accounts = readBrowserWeChatAccounts();
+        const existingIndex = input.id ? accounts.findIndex((item) => item.id === input.id) : -1;
+        const existing = existingIndex >= 0 ? accounts[existingIndex] : null;
+        const now = new Date().toISOString();
+        const appId = input.appId.trim();
+        if (!input.name.trim() || !appId) throw new Error('公众号名称和 AppID 不能为空。');
+        const account: PublicWeChatAccount = {
+          id: existing?.id || crypto.randomUUID(),
+          name: input.name.trim(),
+          appId,
+          appIdMasked: `${appId.slice(0, 6)}••••${appId.slice(-4)}`,
+          hasAppSecret: Boolean(input.appSecret || existing?.hasAppSecret),
+          defaultAuthor: input.defaultAuthor?.trim() || '',
+          defaultThemeId: input.defaultThemeId || 'mac',
+          defaultSourceUrl: input.defaultSourceUrl?.trim() || '',
+          defaultNeedOpenComment: Boolean(input.defaultNeedOpenComment),
+          defaultOnlyFansCanComment: Boolean(input.defaultOnlyFansCanComment),
+          createdAt: existing?.createdAt || now,
+          updatedAt: now
+        };
+        if (existingIndex >= 0) accounts[existingIndex] = account;
+        else accounts.push(account);
+        writeBrowserWeChatAccounts(accounts);
+        return account;
+      },
+      async remove(accountId: string) {
+        writeBrowserWeChatAccounts(readBrowserWeChatAccounts().filter((item) => item.id !== accountId));
+        return { id: accountId };
+      },
+      async test(input: SaveWeChatAccountInput) {
+        await delay(350);
+        if (input.appId.toLowerCase().includes('mock-fail')) {
+          throw new Error('浏览器测试模式模拟公众号凭证错误。');
+        }
+        return {
+          ok: true,
+          credentialsValid: true,
+          tokenAvailable: true,
+          materialPermission: 'unknown' as const,
+          draftPermission: 'unknown' as const,
+          message: 'Mock 凭证有效；素材和草稿权限将在同步测试中确认。'
+        };
+      }
+    },
+    publishing: {
+      async listRecords(articleId: string) {
+        return (readBrowserPublishRecords()[articleId] || [])
+          .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+      },
+      async getRecord(articleId: string, publishId: string) {
+        const record = (readBrowserPublishRecords()[articleId] || []).find((item) => item.id === publishId);
+        if (!record) throw new Error('未找到发布记录。');
+        return record;
+      },
+      async createRecord(input: CreatePublishRecordInput) {
+        const now = new Date().toISOString();
+        const record: PublishRecord = {
+          id: crypto.randomUUID(),
+          articleId: input.articleId,
+          articleVersion: input.articleVersion,
+          target: input.target,
+          accountId: input.accountId,
+          status: 'pending',
+          currentStep: 'validating',
+          createdAt: now,
+          updatedAt: now
+        };
+        const records = readBrowserPublishRecords();
+        records[input.articleId] = [record, ...(records[input.articleId] || [])];
+        writeBrowserPublishRecords(records);
+        return record;
       }
     }
   };

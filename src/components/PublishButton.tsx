@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertTriangle, CheckCircle2, CloudUpload, History, Loader2, X } from 'lucide-react';
 import { makeWeChatCompatible } from '../lib/wechatCompat';
 import { workspaceClient } from '../lib/workspace';
@@ -104,6 +105,15 @@ export default function PublishButton({
     void loadData();
   }, [open, title, loadData]);
 
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !publishing) setOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [open, publishing]);
+
   useEffect(() => workspaceClient.publishing.onProgress((event: PublishProgressEvent) => {
     if (event.articleId !== article.id) return;
     setCurrentRecord(event.record);
@@ -138,7 +148,7 @@ export default function PublishButton({
     sourceHtml: await makeWeChatCompatible(renderedHtml, themeId, { convertImagesToBase64: false })
   });
 
-  const publish = async () => {
+  const publish = async (skipConfirmation = false) => {
     setError('');
     if (saveStatus !== 'saved') {
       setError('请等待文章自动保存完成后再同步。');
@@ -157,9 +167,9 @@ export default function PublishButton({
     try {
       const input = await buildInput();
       const validation = await workspaceClient.publishing.validate(input);
-      const confirmed = window.confirm(
+      const confirmed = skipConfirmation || window.confirm(
         `确认同步到“${selectedAccount?.name || '所选公众号'}”草稿箱？\n\n`
-        + `标题：${input.title}\n版本：V${validation.articleVersion}\n正文图片：${validation.imageCount} 张`
+          + `标题：${input.title}\n版本：V${validation.articleVersion}\n正文图片：${validation.imageCount} 张`
       );
       if (!confirmed) return;
 
@@ -171,6 +181,34 @@ export default function PublishButton({
       }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : '公众号草稿同步失败。');
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const resolveUnknown = async (record: PublishRecord, resolution: 'mark-success' | 'retry') => {
+    const confirmed = window.confirm(
+      resolution === 'mark-success'
+        ? '确认公众号后台已经存在这篇草稿？此操作只更新本地状态。'
+        : '确认公众号后台没有创建这篇草稿？确认后将立即重新同步。'
+    );
+    if (!confirmed) return;
+    setError('');
+    setPublishing(true);
+    try {
+      const resolved = await workspaceClient.publishing.resolveUnknown({
+        articleId: record.articleId,
+        publishId: record.id,
+        resolution
+      });
+      setRecords((current) => current.map((item) => item.id === resolved.id ? resolved : item));
+      setCurrentRecord(resolved);
+      if (resolution === 'retry') {
+        setPublishing(false);
+        await publish(true);
+      }
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : '同步状态处理失败。');
     } finally {
       setPublishing(false);
     }
@@ -189,12 +227,12 @@ export default function PublishButton({
         <span className="sm:hidden">发布</span>
       </button>
 
-      {open && (
-        <div className="fixed inset-0 z-[340] flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
-          <div className="max-h-[94vh] w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-[#1c1c1e]">
+      {open && createPortal(
+        <div role="presentation" onMouseDown={() => !publishing && setOpen(false)} className="fixed inset-0 z-[340] flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
+          <div role="dialog" aria-modal="true" aria-labelledby="publish-dialog-title" onMouseDown={(event) => event.stopPropagation()} className="max-h-[94vh] w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-[#1c1c1e]">
             <div className="flex items-center justify-between border-b border-black/10 px-6 py-4 dark:border-white/10">
               <div>
-                <h2 className="text-lg font-semibold text-black dark:text-white">同步到公众号草稿箱</h2>
+                <h2 id="publish-dialog-title" className="text-lg font-semibold text-black dark:text-white">同步到公众号草稿箱</h2>
                 <p className="mt-1 text-sm text-[#6e6e73] dark:text-[#a1a1a6]">
                   {isDesktop ? '正文图片和封面会由 Electron 主进程处理。' : '浏览器 Mock 模式不会调用真实公众号接口。'}
                 </p>
@@ -253,7 +291,7 @@ export default function PublishButton({
                       <label className="flex items-center gap-3 text-sm"><input type="checkbox" checked={onlyFansCanComment} onChange={(event) => setOnlyFansCanComment(event.target.checked)} />仅粉丝可评论</label>
                     </div>
 
-                    {error && <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-300">{error}</div>}
+                    {error && <div data-testid="publish-error" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-300">{error}</div>}
 
                     {currentRecord && (
                       <div className={`rounded-xl px-4 py-3 text-sm ${currentRecord.status === 'success' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300' : currentRecord.status === 'pending' ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300' : 'bg-amber-50 text-amber-800 dark:bg-amber-950/30 dark:text-amber-300'}`}>
@@ -291,6 +329,16 @@ export default function PublishButton({
                           <div className="mt-2 text-xs text-[#86868b]">本地版本 V{record.articleVersion}</div>
                           {outdated && <div className="mt-2 text-xs text-amber-600 dark:text-amber-400">公众号草稿不是最新版本</div>}
                           {record.errorMessage && <div className="mt-2 text-xs text-red-600 dark:text-red-400">{record.errorMessage}</div>}
+                          {record.status === 'unknown' && (
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              <button type="button" onClick={() => void resolveUnknown(record, 'mark-success')} disabled={publishing} className="rounded-lg border border-black/10 px-2.5 py-1.5 text-xs font-medium hover:bg-black/5 disabled:opacity-50 dark:border-white/10 dark:hover:bg-white/10">
+                                标记为已同步
+                              </button>
+                              <button type="button" onClick={() => void resolveUnknown(record, 'retry')} disabled={publishing} className="rounded-lg bg-[#07c160] px-2.5 py-1.5 text-xs font-medium text-white disabled:opacity-50">
+                                确认未创建，重新同步
+                              </button>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -299,7 +347,8 @@ export default function PublishButton({
               </aside>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

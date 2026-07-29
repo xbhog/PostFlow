@@ -77,7 +77,40 @@ test('shows a browser mock draft failure without losing the article', async ({ p
   page.once('dialog', async (dialog) => dialog.accept());
   await page.getByTestId('confirm-publish-draft').click();
 
-  await expect(modal.getByText('浏览器测试模式模拟草稿创建失败。')).toBeVisible({ timeout: 7000 });
+  await expect(page.getByTestId('publish-error')).toHaveText('浏览器测试模式模拟草稿创建失败。', { timeout: 7000 });
   await page.getByRole('button', { name: '关闭发布面板' }).click();
   await expect(page.getByTestId('editor-input')).toHaveValue(/https:\/\/mock-assets\.draftdock\.local\//);
+});
+
+test('dialogs render in the viewport, close with Escape, and unknown results can be resolved', async ({ page }) => {
+  await createArticle(page);
+  await addImage(page);
+
+  await page.getByTestId('wechat-settings-button').click();
+  const settingsDialog = page.getByRole('dialog', { name: '微信公众号' });
+  await expect(settingsDialog).toBeVisible();
+  const settingsBox = await settingsDialog.boundingBox();
+  expect(settingsBox).not.toBeNull();
+  expect(settingsBox!.y).toBeGreaterThanOrEqual(0);
+  expect(settingsBox!.y + settingsBox!.height).toBeLessThanOrEqual(920);
+  await page.keyboard.press('Escape');
+  await expect(settingsDialog).toBeHidden();
+
+  await addMockAccount(page);
+  await page.getByTestId('publish-draft-button').click();
+  const publishDialog = page.getByRole('dialog', { name: '同步到公众号草稿箱' });
+  await expect(publishDialog).toBeVisible();
+  const publishBox = await publishDialog.boundingBox();
+  expect(publishBox).not.toBeNull();
+  expect(publishBox!.y).toBeGreaterThanOrEqual(0);
+  expect(publishBox!.y + publishBox!.height).toBeLessThanOrEqual(920);
+
+  await publishDialog.locator('input').first().fill('mock-unknown 草稿');
+  page.once('dialog', async (dialog) => dialog.accept());
+  await page.getByTestId('confirm-publish-draft').click();
+  await expect(page.getByTestId('publish-error')).toHaveText('浏览器测试模式模拟草稿创建结果未知。', { timeout: 7000 });
+  await expect(publishDialog.getByRole('button', { name: '标记为已同步' })).toBeVisible();
+  page.once('dialog', async (dialog) => dialog.accept());
+  await publishDialog.getByRole('button', { name: '标记为已同步' }).click();
+  await expect(publishDialog.getByText('已同步').last()).toBeVisible();
 });

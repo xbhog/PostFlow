@@ -1,4 +1,5 @@
 const { classifyWeChatError, createWeChatApiError } = require('./wechat-token-service.cjs');
+const DEFAULT_API_TIMEOUT_MS = 20000;
 
 async function parseResponse(response) {
   const contentType = String(response.headers.get('content-type') || '');
@@ -27,15 +28,21 @@ class WeChatApiClient {
     url.searchParams.set('access_token', accessToken);
 
     let response;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), options.timeoutMs || DEFAULT_API_TIMEOUT_MS);
+    const abortFromCaller = () => controller.abort();
+    options.signal?.addEventListener('abort', abortFromCaller, { once: true });
     try {
       response = await this.fetchImpl(url, {
         method: options.method || 'GET',
         headers: options.headers,
         body: options.body,
         cache: 'no-store',
-        signal: options.signal
+        signal: controller.signal
       });
     } catch (error) {
+      clearTimeout(timeout);
+      options.signal?.removeEventListener('abort', abortFromCaller);
       throw createWeChatApiError(options.errorCode || 'WECHAT_API_FAILED', '无法连接微信公众号接口。', {
         cause: error?.message,
         pathname,
@@ -44,18 +51,34 @@ class WeChatApiClient {
     }
 
     if (!response.ok) {
+      clearTimeout(timeout);
+      options.signal?.removeEventListener('abort', abortFromCaller);
       throw createWeChatApiError(options.errorCode || 'WECHAT_API_FAILED', `微信公众号接口请求失败（HTTP ${response.status}）。`, {
         pathname,
         status: response.status
       });
     }
 
-    const payload = await parseResponse(response);
+    let payload;
+    try {
+      payload = await parseResponse(response);
+    } catch (error) {
+      if (controller.signal.aborted) {
+        throw createWeChatApiError(options.errorCode || 'WECHAT_API_FAILED', '微信公众号接口响应超时。', {
+          pathname,
+          networkFailure: true
+        });
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+      options.signal?.removeEventListener('abort', abortFromCaller);
+    }
     if (payload && typeof payload === 'object') {
       const apiError = classifyWeChatError(payload, options.errorCode || 'WECHAT_API_FAILED');
       if (apiError) {
         if (!retried && apiError.code === 'WECHAT_TOKEN_EXPIRED') {
-          this.tokenService.clear(account.id);
+          this.tokenService.invalidate(account.id);
           return this.request(account, pathname, options, true);
         }
         throw apiError;
@@ -65,8 +88,10 @@ class WeChatApiClient {
     return payload;
   }
 
-  async testConnection(account) {
-    const accessToken = await this.tokenService.getAccessToken(account, true);
+  async testConnection(account, { cache = true } = {}) {
+    const accessToken = cache
+      ? await this.tokenService.getAccessToken(account, true)
+      : await this.tokenService.testAccessToken(account);
     return {
       ok: true,
       credentialsValid: Boolean(accessToken),

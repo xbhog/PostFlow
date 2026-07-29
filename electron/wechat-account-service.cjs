@@ -6,7 +6,7 @@ const { safeStorage } = require('electron');
 const ACCOUNT_ID_PATTERN = /^[a-zA-Z0-9-]+$/;
 
 async function writeJsonAtomic(filePath, value) {
-  const temporaryPath = `${filePath}.tmp`;
+  const temporaryPath = `${filePath}.${crypto.randomUUID()}.tmp`;
   await fs.writeFile(temporaryPath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
   await fs.rename(temporaryPath, filePath);
 }
@@ -28,6 +28,19 @@ function maskAppId(value) {
 class WeChatAccountService {
   constructor(app) {
     this.configPath = path.join(app.getPath('userData'), 'wechat-accounts.json');
+    this.mutationQueue = Promise.resolve();
+  }
+
+  async withMutationLock(action) {
+    const previous = this.mutationQueue;
+    let release;
+    this.mutationQueue = new Promise((resolve) => { release = resolve; });
+    await previous;
+    try {
+      return await action();
+    } finally {
+      release();
+    }
   }
 
   encryptValue(value) {
@@ -160,38 +173,47 @@ class WeChatAccountService {
   }
 
   async save(input) {
-    const store = await this.readStore();
-    const existingIndex = input?.id
-      ? store.accounts.findIndex((account) => account.id === input.id)
-      : -1;
-    const existing = existingIndex >= 0 ? store.accounts[existingIndex] : null;
-    const normalized = this.validateInput(input, existing);
-    const now = new Date().toISOString();
-    const stored = {
-      id: existing?.id || crypto.randomUUID(),
-      name: normalized.name,
-      appId: normalized.appId,
-      encryptedAppSecret: this.encryptValue(normalized.appSecret),
-      defaultAuthor: normalized.defaultAuthor,
-      defaultThemeId: normalized.defaultThemeId,
-      defaultSourceUrl: normalized.defaultSourceUrl,
-      defaultNeedOpenComment: normalized.defaultNeedOpenComment,
-      defaultOnlyFansCanComment: normalized.defaultOnlyFansCanComment,
-      createdAt: existing?.createdAt || now,
-      updatedAt: now
-    };
+    return this.withMutationLock(async () => {
+      const store = await this.readStore();
+      const existingIndex = input?.id
+        ? store.accounts.findIndex((account) => account.id === input.id)
+        : -1;
+      const existing = existingIndex >= 0 ? store.accounts[existingIndex] : null;
+      const normalized = this.validateInput(input, existing);
+      const now = new Date().toISOString();
+      const stored = {
+        id: existing?.id || crypto.randomUUID(),
+        name: normalized.name,
+        appId: normalized.appId,
+        encryptedAppSecret: this.encryptValue(normalized.appSecret),
+        defaultAuthor: normalized.defaultAuthor,
+        defaultThemeId: normalized.defaultThemeId,
+        defaultSourceUrl: normalized.defaultSourceUrl,
+        defaultNeedOpenComment: normalized.defaultNeedOpenComment,
+        defaultOnlyFansCanComment: normalized.defaultOnlyFansCanComment,
+        createdAt: existing?.createdAt || now,
+        updatedAt: now
+      };
 
-    if (existingIndex >= 0) store.accounts[existingIndex] = stored;
-    else store.accounts.push(stored);
-    await this.writeStore(store);
-    return this.toPublicAccount(stored);
+      if (existingIndex >= 0) store.accounts[existingIndex] = stored;
+      else store.accounts.push(stored);
+      await this.writeStore(store);
+      return this.toPublicAccount(stored);
+    });
   }
 
   async remove(accountId) {
-    const { store, account } = await this.getStoredAccount(accountId);
-    store.accounts = store.accounts.filter((item) => item.id !== account.id);
-    await this.writeStore(store);
-    return { id: account.id };
+    return this.withMutationLock(async () => {
+      if (!ACCOUNT_ID_PATTERN.test(String(accountId || ''))) {
+        throw createAccountError('WECHAT_INVALID_CONFIG', '公众号账号 ID 无效。');
+      }
+      const store = await this.readStore();
+      const account = store.accounts.find((item) => item.id === accountId);
+      if (!account) throw createAccountError('WECHAT_NOT_CONFIGURED', '未找到公众号配置。');
+      store.accounts = store.accounts.filter((item) => item.id !== account.id);
+      await this.writeStore(store);
+      return { id: account.id };
+    });
   }
 }
 

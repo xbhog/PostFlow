@@ -4,6 +4,7 @@ import { handleSmartPaste } from '../lib/htmlToMarkdown';
 import type { AssetSourceType } from '../types/assets';
 import SessionPublishButton from './SessionPublishButton';
 import WeChatAccountSettings from './WeChatAccountSettings';
+import type { SaveStatus } from './ArticleEditorBar';
 
 interface EditorPanelProps {
     markdownInput: string;
@@ -18,6 +19,7 @@ interface EditorPanelProps {
     failedAssetCount: number;
     activeAssetCount: number;
     isDesktop: boolean;
+    saveStatus: SaveStatus;
 }
 
 export default function EditorPanel({
@@ -32,7 +34,8 @@ export default function EditorPanel({
     assetCount,
     failedAssetCount,
     activeAssetCount,
-    isDesktop
+    isDesktop,
+    saveStatus
 }: EditorPanelProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -128,7 +131,7 @@ export default function EditorPanel({
                         <Settings2 size={14} />图片存储
                     </button>
                     <WeChatAccountSettings isDesktop={isDesktop} />
-                    <SessionPublishButton isDesktop={isDesktop} />
+                    <SessionPublishButton isDesktop={isDesktop} saveStatus={saveStatus} />
                 </div>
             </div>
         </div>

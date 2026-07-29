@@ -1,4 +1,5 @@
 const DEFAULT_TOKEN_SAFETY_SECONDS = 300;
+const DEFAULT_REQUEST_TIMEOUT_MS = 15000;
 
 function createWeChatApiError(code, message, details) {
   const error = new Error(message);
@@ -42,6 +43,11 @@ class WeChatTokenService {
     this.refreshing.clear();
   }
 
+  invalidate(accountId) {
+    if (accountId) this.cache.delete(accountId);
+    else this.cache.clear();
+  }
+
   getCached(accountId) {
     const cached = this.cache.get(accountId);
     if (!cached) return null;
@@ -52,24 +58,39 @@ class WeChatTokenService {
     return cached.accessToken;
   }
 
-  async fetchToken(account) {
+  async fetchToken(account, { cache = true } = {}) {
     const url = new URL('https://api.weixin.qq.com/cgi-bin/token');
     url.searchParams.set('grant_type', 'client_credential');
     url.searchParams.set('appid', account.appId);
     url.searchParams.set('secret', account.appSecret);
 
     let response;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), DEFAULT_REQUEST_TIMEOUT_MS);
     try {
-      response = await this.fetchImpl(url, { method: 'GET', cache: 'no-store' });
+      response = await this.fetchImpl(url, {
+        method: 'GET',
+        cache: 'no-store',
+        signal: controller.signal
+      });
     } catch (error) {
+      clearTimeout(timeout);
       throw createWeChatApiError('WECHAT_TOKEN_FAILED', '无法连接微信公众号接口。', { cause: error?.message });
     }
 
     if (!response.ok) {
+      clearTimeout(timeout);
       throw createWeChatApiError('WECHAT_TOKEN_FAILED', `微信公众号接口请求失败（HTTP ${response.status}）。`);
     }
 
-    const payload = await response.json();
+    let payload;
+    try {
+      payload = await response.json();
+    } catch (error) {
+      throw createWeChatApiError('WECHAT_TOKEN_FAILED', '微信公众号接口返回了无效响应。', { cause: error?.message });
+    } finally {
+      clearTimeout(timeout);
+    }
     const apiError = classifyWeChatError(payload, 'WECHAT_TOKEN_FAILED');
     if (apiError) throw apiError;
     if (!payload?.access_token || !Number.isFinite(Number(payload?.expires_in))) {
@@ -78,10 +99,12 @@ class WeChatTokenService {
 
     const expiresIn = Number(payload.expires_in);
     const safeLifetime = Math.max(60, expiresIn - this.safetySeconds);
-    this.cache.set(account.id, {
-      accessToken: payload.access_token,
-      expiresAt: Date.now() + safeLifetime * 1000
-    });
+    if (cache) {
+      this.cache.set(account.id, {
+        accessToken: payload.access_token,
+        expiresAt: Date.now() + safeLifetime * 1000
+      });
+    }
     return payload.access_token;
   }
 
@@ -98,11 +121,16 @@ class WeChatTokenService {
     this.refreshing.set(account.id, refreshPromise);
     return refreshPromise;
   }
+
+  async testAccessToken(account) {
+    return this.fetchToken(account, { cache: false });
+  }
 }
 
 module.exports = {
   WeChatTokenService,
   classifyWeChatError,
   createWeChatApiError,
-  DEFAULT_TOKEN_SAFETY_SECONDS
+  DEFAULT_TOKEN_SAFETY_SECONDS,
+  DEFAULT_REQUEST_TIMEOUT_MS
 };

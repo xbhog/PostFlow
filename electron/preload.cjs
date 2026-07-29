@@ -43,7 +43,7 @@ contextBridge.exposeInMainWorld('draftdock', {
     createDraft: (input) => ipcRenderer.invoke('publishing:create-draft', input),
     listRecords: (articleId) => ipcRenderer.invoke('publishing:list-records', articleId),
     getRecord: (articleId, publishId) => ipcRenderer.invoke('publishing:get-record', articleId, publishId),
-    createRecord: (input) => ipcRenderer.invoke('publishing:create-record', input),
+    resolveUnknown: (input) => ipcRenderer.invoke('publishing:resolve-unknown', input),
     onProgress: (callback) => {
       const listener = (_event, payload) => callback(payload);
       ipcRenderer.on('publishing:progress', listener);

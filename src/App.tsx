@@ -684,6 +684,7 @@ export default function App() {
                         failedAssetCount={failedAssetCount}
                         activeAssetCount={activeAssetCount}
                         isDesktop={workspaceClient.isDesktop}
+                        saveStatus={saveStatus}
                     />
                 </div>
                 <div className={`${activePanel === 'preview' ? 'flex' : 'hidden'} flex-col overflow-hidden md:flex`}>

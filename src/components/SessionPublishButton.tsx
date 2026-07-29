@@ -8,51 +8,35 @@ import {
 import type { ArticleDocument } from '../types/article';
 import type { AssetProgressEvent, AssetRecord } from '../types/assets';
 import PublishButton from './PublishButton';
+import type { SaveStatus } from './ArticleEditorBar';
 
 interface SessionPublishButtonProps {
   isDesktop: boolean;
+  saveStatus: SaveStatus;
 }
 
-export default function SessionPublishButton({ isDesktop }: SessionPublishButtonProps) {
+export default function SessionPublishButton({ isDesktop, saveStatus }: SessionPublishButtonProps) {
   const [article, setArticle] = useState<ArticleDocument | null>(() => getActiveArticleSession());
   const [assets, setAssets] = useState<AssetRecord[]>([]);
-  const [saveStatus, setSaveStatus] = useState<'saved' | 'dirty' | 'saving' | 'error'>('saved');
+  const articleId = article?.id;
 
   useEffect(() => onActiveArticleSession(setArticle), []);
 
   useEffect(() => {
-    if (!article) {
+    if (!articleId) {
       setAssets([]);
       return;
     }
-    void workspaceClient.assets.list(article.id).then(setAssets).catch(() => setAssets([]));
-  }, [article]);
+    void workspaceClient.assets.list(articleId).then(setAssets).catch(() => setAssets([]));
+  }, [articleId]);
 
   useEffect(() => workspaceClient.assets.onProgress((event: AssetProgressEvent) => {
-    if (!article || event.articleId !== article.id) return;
+    if (!articleId || event.articleId !== articleId) return;
     setAssets((current) => {
       const remaining = current.filter((asset) => asset.id !== event.asset.id);
       return [...remaining, event.asset].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
     });
-  }), [article]);
-
-  useEffect(() => {
-    const element = document.querySelector('[data-testid="save-status"]');
-    if (!element) return;
-
-    const update = () => {
-      const text = element.textContent || '';
-      if (text.includes('保存失败')) setSaveStatus('error');
-      else if (text.includes('保存中')) setSaveStatus('saving');
-      else if (text.includes('等待保存')) setSaveStatus('dirty');
-      else setSaveStatus('saved');
-    };
-
-    update();
-    const observer = new MutationObserver(update);
-    observer.observe(element, { childList: true, subtree: true, characterData: true });
-    return () => observer.disconnect();
-  }, [article]);
+  }), [articleId]);
 
   const renderedHtml = useMemo(() => {
     if (!article) return '';

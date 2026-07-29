@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CheckCircle2, Loader2, MessageCircleMore, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { workspaceClient } from '../lib/workspace';
 import type {
@@ -47,6 +48,15 @@ export default function WeChatAccountSettings({ isDesktop }: WeChatAccountSettin
   useEffect(() => {
     if (open) void loadAccounts();
   }, [open, loadAccounts]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [open]);
 
   const resetForm = () => {
     setForm(EMPTY_FORM);
@@ -126,12 +136,12 @@ export default function WeChatAccountSettings({ isDesktop }: WeChatAccountSettin
         <MessageCircleMore size={14} />公众号
       </button>
 
-      {open && (
-        <div className="fixed inset-0 z-[330] flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
-          <div className="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-[#1c1c1e]">
+      {open && createPortal(
+        <div role="presentation" onMouseDown={() => setOpen(false)} className="fixed inset-0 z-[330] flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
+          <div role="dialog" aria-modal="true" aria-labelledby="wechat-settings-title" onMouseDown={(event) => event.stopPropagation()} className="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-[#1c1c1e]">
             <div className="flex items-center justify-between border-b border-black/10 px-6 py-4 dark:border-white/10">
               <div>
-                <h2 className="text-lg font-semibold text-black dark:text-white">微信公众号</h2>
+                <h2 id="wechat-settings-title" className="text-lg font-semibold text-black dark:text-white">微信公众号</h2>
                 <p className="mt-1 text-sm text-[#6e6e73] dark:text-[#a1a1a6]">
                   {isDesktop ? 'AppSecret 由 Electron safeStorage 加密，仅在主进程使用。' : '浏览器测试模式只保存 Mock 配置。'}
                 </p>
@@ -220,7 +230,8 @@ export default function WeChatAccountSettings({ isDesktop }: WeChatAccountSettin
               </section>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

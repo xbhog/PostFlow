@@ -13,7 +13,6 @@ import type {
   SaveStorageConfigInput
 } from '../types/assets';
 import type {
-  CreatePublishRecordInput,
   CreateWeChatDraftInput,
   PublicWeChatAccount,
   PublishProgressEvent,
@@ -21,6 +20,8 @@ import type {
   PublishStep,
   SaveWeChatAccountInput
 } from '../types/wechat';
+
+type PendingRecordInput = Pick<PublishRecord, 'articleId' | 'articleVersion' | 'target' | 'accountId'>;
 
 const ARTICLE_STORAGE_KEY = 'draftdock:browser-articles:v1';
 const ASSET_STORAGE_KEY = 'draftdock:browser-assets:v1';
@@ -163,7 +164,7 @@ function upsertPublishRecord(record: PublishRecord) {
   return record;
 }
 
-function createPendingRecord(input: CreatePublishRecordInput): PublishRecord {
+function createPendingRecord(input: PendingRecordInput): PublishRecord {
   const now = new Date().toISOString();
   return {
     id: crypto.randomUUID(),
@@ -199,6 +200,16 @@ function validateMockDraft(input: CreateWeChatDraftInput) {
 
 async function mockDraft(input: CreateWeChatDraftInput): Promise<PublishRecord> {
   validateMockDraft(input);
+  const unresolved = (readPublishRecords()[input.articleId] || []).find((record) => (
+    record.accountId === input.accountId
+    && record.articleVersion === input.articleVersion
+    && ['pending', 'unknown'].includes(record.status)
+  ));
+  if (unresolved) {
+    throw new Error(unresolved.status === 'unknown'
+      ? '上一次同步结果未知，请先在同步历史中确认处理。'
+      : '这篇文章已有正在同步的任务，请勿重复创建草稿。');
+  }
   let record = upsertPublishRecord(createPendingRecord({
     articleId: input.articleId,
     articleVersion: input.articleVersion,
@@ -516,8 +527,17 @@ export function createBrowserBridge(): WorkspaceBridge {
         if (!record) throw new Error('未找到发布记录。');
         return record;
       },
-      async createRecord(input: CreatePublishRecordInput) {
-        return upsertPublishRecord(createPendingRecord(input));
+      async resolveUnknown(input) {
+        const record = (readPublishRecords()[input.articleId] || []).find((item) => item.id === input.publishId);
+        if (!record || record.status !== 'unknown') throw new Error('只有结果未知的同步记录可以手动处理。');
+        return upsertPublishRecord({
+          ...record,
+          status: input.resolution === 'mark-success' ? 'success' : 'failed',
+          currentStep: input.resolution === 'mark-success' ? 'completed' : record.currentStep,
+          errorCode: input.resolution === 'mark-success' ? undefined : 'WECHAT_UNKNOWN_CONFIRMED_NOT_CREATED',
+          errorMessage: input.resolution === 'mark-success' ? undefined : '已确认公众号后台未创建草稿，可以重新同步。',
+          updatedAt: new Date().toISOString()
+        });
       },
       onProgress(callback) {
         publishListeners.add(callback);

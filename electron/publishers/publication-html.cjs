@@ -1,4 +1,5 @@
 const { createWeChatApiError } = require('./wechat-token-service.cjs');
+const sanitizeHtml = require('sanitize-html');
 
 const BLOCKED_ELEMENTS = [
   'script',
@@ -17,18 +18,42 @@ const BLOCKED_ELEMENTS = [
 ];
 
 function sanitizePublicationHtml(value) {
-  let html = String(value || '');
-  for (const tag of BLOCKED_ELEMENTS) {
-    const paired = new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*?<\\/${tag}\\s*>`, 'gi');
-    const standalone = new RegExp(`<${tag}\\b[^>]*\\/?\\s*>`, 'gi');
-    html = html.replace(paired, '').replace(standalone, '');
-  }
-
-  html = html
-    .replace(/\s+on[a-z0-9_-]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
-    .replace(/\s+(href|src)\s*=\s*(["'])\s*javascript:[\s\S]*?\2/gi, '')
-    .replace(/\s+(href|src)\s*=\s*javascript:[^\s>]+/gi, '')
-    .replace(/<!--([\s\S]*?)-->/g, '');
+  const html = sanitizeHtml(String(value || ''), {
+    allowedTags: [
+      'p', 'br', 'div', 'span', 'section', 'article',
+      'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+      'strong', 'b', 'em', 'i', 'u', 's', 'del',
+      'blockquote', 'pre', 'code', 'ul', 'ol', 'li',
+      'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td',
+      'a', 'img', 'hr', 'figure', 'figcaption'
+    ],
+    allowedAttributes: {
+      '*': ['class', 'style', 'title', 'data-*'],
+      a: ['href', 'target', 'rel', 'title'],
+      img: ['src', 'alt', 'title', 'width', 'height'],
+      td: ['colspan', 'rowspan'],
+      th: ['colspan', 'rowspan']
+    },
+    allowedSchemes: ['https', 'http', 'mailto'],
+    allowedSchemesByTag: {
+      img: ['https'],
+      a: ['https', 'http', 'mailto']
+    },
+    allowProtocolRelative: false,
+    disallowedTagsMode: 'discard',
+    parseStyleAttributes: false,
+    transformTags: {
+      '*': (tagName, attribs) => {
+        if (attribs.style && /(?:url\s*\(|expression\s*\(|@import|behavior\s*:|-moz-binding)/i.test(attribs.style)) {
+          delete attribs.style;
+        }
+        if (tagName === 'a' && attribs.target === '_blank') {
+          attribs.rel = 'noopener noreferrer';
+        }
+        return { tagName, attribs };
+      }
+    }
+  });
 
   if (!html.trim()) {
     throw createWeChatApiError('WECHAT_INVALID_CONTENT', '公众号正文清理后为空。');

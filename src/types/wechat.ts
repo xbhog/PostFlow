@@ -65,11 +65,10 @@ export interface PublishRecord {
   };
 }
 
-export interface CreatePublishRecordInput {
+export interface ResolveUnknownPublishInput {
   articleId: string;
-  articleVersion: number;
-  target: PublishTarget;
-  accountId?: string;
+  publishId: string;
+  resolution: 'mark-success' | 'retry';
 }
 
 export interface CreateWeChatDraftInput {
@@ -113,7 +112,7 @@ export interface WeChatBridge {
     createDraft(input: CreateWeChatDraftInput): Promise<PublishRecord>;
     listRecords(articleId: string): Promise<PublishRecord[]>;
     getRecord(articleId: string, publishId: string): Promise<PublishRecord>;
-    createRecord(input: CreatePublishRecordInput): Promise<PublishRecord>;
+    resolveUnknown(input: ResolveUnknownPublishInput): Promise<PublishRecord>;
     onProgress(callback: (event: PublishProgressEvent) => void): () => void;
   };
 }

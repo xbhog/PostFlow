@@ -20,13 +20,14 @@ async function getBase64Image(imgUrl: string): Promise<string> {
         const response = await fetch(imgUrl, { mode: 'cors', cache: 'default' });
         if (!response.ok) return imgUrl;
 
-        const blob = await response.blob();
-        return new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.onerror = () => resolve(imgUrl);
-            reader.readAsDataURL(blob);
-        });
+        const bytes = new Uint8Array(await response.arrayBuffer());
+        let binary = '';
+        const chunkSize = 0x8000;
+        for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+            binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+        }
+        const mimeType = response.headers.get('content-type')?.split(';')[0] || 'application/octet-stream';
+        return `data:${mimeType};base64,${btoa(binary)}`;
     } catch {
         return imgUrl;
     }

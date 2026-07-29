@@ -32,6 +32,7 @@ import ArticleLibrary from './components/ArticleLibrary';
 import ArticleEditorBar, { type SaveStatus } from './components/ArticleEditorBar';
 import StorageSettings from './components/StorageSettings';
 import AssetUploadQueue from './components/AssetUploadQueue';
+import NoticeToast from './components/NoticeToast';
 
 const EMPTY_STORAGE_CONFIG: PublicStorageConfig = {
     configured: false,
@@ -96,6 +97,7 @@ export default function App() {
     const [storageSettingsOpen, setStorageSettingsOpen] = useState(false);
     const [assetQueueOpen, setAssetQueueOpen] = useState(false);
     const [assets, setAssets] = useState<AssetRecord[]>([]);
+    const [notice, setNotice] = useState<{ message: string; tone: 'success' | 'error' } | null>(null);
 
     const previewRef = useRef<HTMLDivElement>(null);
     const editorScrollRef = useRef<HTMLTextAreaElement>(null);
@@ -104,7 +106,22 @@ export default function App() {
     const scrollSyncLockRef = useRef<'editor' | 'preview' | null>(null);
     const scrollLockReleaseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const noticeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastSavedSnapshotRef = useRef('');
+    const previousFailedAssetCountRef = useRef(0);
+
+    const showNotice = useCallback((message: string, tone: 'success' | 'error' = 'success') => {
+        if (noticeTimeoutRef.current) clearTimeout(noticeTimeoutRef.current);
+        setNotice({ message, tone });
+        noticeTimeoutRef.current = setTimeout(() => {
+            setNotice(null);
+            noticeTimeoutRef.current = null;
+        }, 3200);
+    }, []);
+
+    useEffect(() => () => {
+        if (noticeTimeoutRef.current) clearTimeout(noticeTimeoutRef.current);
+    }, []);
 
     const upsertAsset = useCallback((nextAsset: AssetRecord) => {
         setAssets((current) => {
@@ -351,8 +368,6 @@ export default function App() {
             jobs.map((job) => createAssetPlaceholder(job.assetId, job.alt)).join('\n\n'),
             setMarkdownInput
         );
-        setAssetQueueOpen(true);
-
         await Promise.all(jobs.map(async ({ file, assetId }) => {
             try {
                 const result = await workspaceClient.assets.ingest({
@@ -367,7 +382,7 @@ export default function App() {
                 applyCompletedAsset(result);
             } catch (error) {
                 console.error('Unable to ingest image:', error);
-                alert(error instanceof Error ? error.message : '图片处理失败。');
+                showNotice(error instanceof Error ? error.message : '图片处理失败。', 'error');
             }
         }));
     };
@@ -400,6 +415,8 @@ export default function App() {
     const handleSaveStorageConfig = async (input: SaveStorageConfigInput) => {
         const saved = await workspaceClient.storage.saveConfig(input);
         setStorageConfig(saved);
+        setStorageSettingsOpen(false);
+        showNotice('图片存储配置已保存');
         return saved;
     };
 
@@ -575,6 +592,21 @@ export default function App() {
     const failedAssetCount = assets.filter((asset) => ['failed', 'interrupted'].includes(asset.status)).length;
     const activeAssetCount = assets.filter((asset) => ['queued', 'processing', 'uploading'].includes(asset.status)).length;
 
+    useEffect(() => {
+        if (failedAssetCount > previousFailedAssetCountRef.current) {
+            showNotice('图片处理失败，点击“图片”查看并重试', 'error');
+        }
+        previousFailedAssetCountRef.current = failedAssetCount;
+    }, [failedAssetCount, showNotice]);
+
+    const noticeToast = notice && (
+        <NoticeToast
+            message={notice.message}
+            tone={notice.tone}
+            onClose={() => setNotice(null)}
+        />
+    );
+
     if (viewMode === 'library') {
         return (
             <div className="flex h-screen flex-col overflow-hidden bg-[#fbfbfd] antialiased transition-colors duration-300 dark:bg-black">
@@ -600,6 +632,7 @@ export default function App() {
                     onSave={handleSaveStorageConfig}
                     onTest={handleTestStorageConfig}
                 />
+                {noticeToast}
             </div>
         );
     }
@@ -660,6 +693,7 @@ export default function App() {
 
             <StorageSettings open={storageSettingsOpen} isDesktop={workspaceClient.isDesktop} config={storageConfig} onClose={() => setStorageSettingsOpen(false)} onSave={handleSaveStorageConfig} onTest={handleTestStorageConfig} />
             <AssetUploadQueue open={assetQueueOpen} assets={assets} onClose={() => setAssetQueueOpen(false)} onRetry={(assetId) => void handleRetryAsset(assetId)} onRetryAll={() => void handleRetryAllAssets()} onReveal={(assetId) => void handleRevealAsset(assetId)} />
+            {noticeToast}
         </div>
     );
 }

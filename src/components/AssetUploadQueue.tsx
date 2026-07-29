@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { AlertCircle, CheckCircle2, FileImage, FolderOpen, Loader2, RotateCcw, X } from 'lucide-react';
 import type { AssetRecord } from '../types/assets';
 
@@ -34,16 +35,42 @@ export default function AssetUploadQueue({
   onRetryAll,
   onReveal
 }: AssetUploadQueueProps) {
+  useEffect(() => {
+    if (!open) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [open, onClose]);
+
   if (!open) return null;
   const failedCount = assets.filter((asset) => ['failed', 'interrupted'].includes(asset.status)).length;
+  const activeCount = assets.filter((asset) => ['queued', 'processing', 'uploading'].includes(asset.status)).length;
+  const sortedAssets = [...assets].sort((left, right) => {
+    const priority = (status: AssetRecord['status']) => {
+      if (status === 'failed' || status === 'interrupted') return 0;
+      if (status === 'queued' || status === 'processing' || status === 'uploading') return 1;
+      return 2;
+    };
+    return priority(left.status) - priority(right.status) || right.updatedAt.localeCompare(left.updatedAt);
+  });
 
   return (
-    <div className="fixed inset-0 z-[280] flex items-end justify-end bg-black/20 p-4 sm:items-stretch sm:bg-transparent sm:p-0">
-      <div className="flex max-h-[80vh] w-full flex-col rounded-2xl bg-white shadow-2xl dark:bg-[#1c1c1e] sm:h-full sm:max-h-none sm:w-[420px] sm:rounded-none sm:border-l sm:border-black/10 dark:sm:border-white/10">
-        <div className="flex items-center justify-between border-b border-black/10 px-5 py-4 dark:border-white/10">
+    <div className="pointer-events-none fixed inset-x-3 bottom-3 z-[280] flex justify-end sm:inset-x-auto sm:bottom-5 sm:right-5">
+      <div
+        className="pointer-events-auto flex max-h-[min(520px,calc(100vh-2rem))] w-full flex-col overflow-hidden rounded-2xl border border-black/10 bg-white/95 shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-[#1c1c1e]/95 sm:w-[360px]"
+        role="dialog"
+        aria-modal="false"
+        aria-labelledby="asset-queue-title"
+        data-testid="asset-upload-queue"
+      >
+        <div className="flex items-center justify-between border-b border-black/10 px-4 py-3 dark:border-white/10">
           <div>
-            <h2 className="font-semibold text-black dark:text-white">图片上传队列</h2>
-            <p className="mt-1 text-xs text-[#86868b]">共 {assets.length} 张，失败 {failedCount} 张</p>
+            <h2 id="asset-queue-title" className="text-sm font-semibold text-black dark:text-white">图片状态</h2>
+            <p className="mt-0.5 text-[11px] text-[#86868b]">
+              {failedCount > 0 ? `${failedCount} 张失败` : activeCount > 0 ? `${activeCount} 张处理中` : `${assets.length} 张已完成`}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             {failedCount > 0 && (
@@ -57,7 +84,7 @@ export default function AssetUploadQueue({
           </div>
         </div>
 
-        <div className="flex-1 space-y-3 overflow-y-auto p-4">
+        <div className="flex-1 space-y-2 overflow-y-auto p-3">
           {assets.length === 0 && (
             <div className="flex h-48 flex-col items-center justify-center text-center text-[#86868b]">
               <FileImage size={32} className="mb-3 opacity-60" />
@@ -66,15 +93,15 @@ export default function AssetUploadQueue({
             </div>
           )}
 
-          {assets.map((asset) => (
-            <div key={asset.id} className="rounded-xl border border-black/10 p-3 dark:border-white/10">
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5 rounded-lg bg-black/5 p-2 dark:bg-white/10">
-                  <FileImage size={18} />
+          {sortedAssets.map((asset) => (
+            <div key={asset.id} className="rounded-xl border border-black/10 bg-white/70 p-3 dark:border-white/10 dark:bg-black/10">
+              <div className="flex items-center gap-2.5">
+                <div className="rounded-lg bg-black/5 p-1.5 dark:bg-white/10">
+                  <FileImage size={16} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium text-black dark:text-white">{asset.originalName}</div>
-                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[#86868b]">
+                  <div className="truncate text-xs font-medium text-black dark:text-white">{asset.originalName}</div>
+                  <div className="mt-0.5 flex flex-wrap gap-x-2 text-[11px] text-[#86868b]">
                     <span>{formatBytes(asset.originalSize)}</span>
                     {asset.processedSize !== undefined && <span>→ {formatBytes(asset.processedSize)}</span>}
                     {asset.reused && <span>已复用</span>}
@@ -83,7 +110,8 @@ export default function AssetUploadQueue({
                 <StatusIcon status={asset.status} />
               </div>
 
-              <div className="mt-3 flex items-center justify-between gap-2">
+              {(asset.status !== 'success' || asset.originalPath) && (
+              <div className="mt-2 flex items-center justify-between gap-2 pl-9">
                 <span className={`text-xs ${asset.status === 'failed' || asset.status === 'interrupted' ? 'text-red-600 dark:text-red-400' : 'text-[#86868b]'}`}>
                   {asset.errorMessage || statusLabel[asset.status]}
                 </span>
@@ -100,11 +128,6 @@ export default function AssetUploadQueue({
                   )}
                 </div>
               </div>
-
-              {asset.publicUrl && (
-                <div className="mt-2 truncate rounded-lg bg-black/5 px-2.5 py-2 font-mono text-[10px] text-[#6e6e73] dark:bg-white/5 dark:text-[#a1a1a6]">
-                  {asset.publicUrl}
-                </div>
               )}
             </div>
           ))}

@@ -23,6 +23,9 @@ test('uploads a browser mock image and persists the public URL', async ({ page }
 
   await expect(editor).toHaveValue(/draftdock-upload:\/\//);
   await expect(editor).toHaveValue(/https:\/\/mock-assets\.draftdock\.local\//, { timeout: 5000 });
+  await expect(page.getByTestId('asset-upload-queue')).toHaveCount(0);
+
+  await page.getByTestId('asset-queue-button').click();
   await expect(page.getByText('已上传').first()).toBeVisible();
 
   await page.getByRole('button', { name: '关闭' }).click();
@@ -45,6 +48,7 @@ test('reuses the public URL for the same image content', async ({ page }) => {
     const value = await editor.inputValue();
     return (value.match(/https:\/\/mock-assets\.draftdock\.local\//g) || []).length;
   }, { timeout: 5000 }).toBe(2);
+  await page.getByTestId('asset-queue-button').click();
   await expect(page.getByText('已复用').first()).toBeVisible();
 });
 
@@ -58,8 +62,25 @@ test('keeps a failed placeholder and replaces it after retry', async ({ page }) 
     buffer: tinyPng
   });
 
-  await expect(page.getByText('浏览器测试模式模拟上传失败。')).toBeVisible({ timeout: 5000 });
+  await expect(page.getByText('图片处理失败，点击“图片”查看并重试')).toBeVisible({ timeout: 5000 });
   await expect(editor).toHaveValue(/draftdock-upload:\/\//);
+  await page.getByTestId('asset-queue-button').click();
+  await expect(page.getByText('浏览器测试模式模拟上传失败。')).toBeVisible();
   await page.getByRole('button', { name: '重试', exact: true }).click();
   await expect(editor).toHaveValue(/https:\/\/mock-assets\.draftdock\.local\//, { timeout: 5000 });
+});
+
+test('closes storage settings after save and confirms success', async ({ page }) => {
+  await createArticle(page);
+
+  await page.getByTestId('storage-settings-button').click();
+  await expect(page.getByTestId('storage-settings-dialog')).toBeVisible();
+  await page.getByRole('button', { name: '保存配置' }).click();
+
+  await expect(page.getByTestId('storage-settings-dialog')).toHaveCount(0);
+  await expect(page.getByTestId('app-notice')).toContainText('图片存储配置已保存');
+
+  await page.getByTestId('storage-settings-button').click();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('storage-settings-dialog')).toHaveCount(0);
 });

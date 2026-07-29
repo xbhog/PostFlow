@@ -53,6 +53,15 @@ export default function StorageSettings({
     setError('');
   }, [open, config]);
 
+  useEffect(() => {
+    if (!open) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !isSaving && !isTesting) onClose();
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [open, isSaving, isTesting, onClose]);
+
   if (!open) return null;
 
   const update = <K extends keyof SaveStorageConfigInput>(key: K, value: SaveStorageConfigInput[K]) => {
@@ -86,7 +95,6 @@ export default function StorageSettings({
     setError('');
     try {
       await onSave(form);
-      setMessage('图片存储配置已保存。');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : '保存配置失败。');
     } finally {
@@ -95,11 +103,22 @@ export default function StorageSettings({
   };
 
   return (
-    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-      <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-2xl dark:bg-[#1c1c1e]">
+    <div
+      className="fixed inset-0 z-[300] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !isSaving && !isTesting) onClose();
+      }}
+    >
+      <div
+        className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-2xl dark:bg-[#1c1c1e]"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="storage-settings-title"
+        data-testid="storage-settings-dialog"
+      >
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-black/10 bg-white px-6 py-4 dark:border-white/10 dark:bg-[#1c1c1e]">
           <div>
-            <h2 className="text-lg font-semibold text-black dark:text-white">Cloudflare R2 图片存储</h2>
+            <h2 id="storage-settings-title" className="text-lg font-semibold text-black dark:text-white">Cloudflare R2 图片存储</h2>
             <p className="mt-1 text-sm text-[#6e6e73] dark:text-[#a1a1a6]">
               {isDesktop ? '密钥由 Electron safeStorage 加密，仅在主进程使用。' : '浏览器测试模式不会保存或访问真实密钥。'}
             </p>
@@ -159,9 +178,9 @@ export default function StorageSettings({
               {isTesting && <Loader2 size={16} className="animate-spin" />}
               测试连接
             </button>
-            <button type="button" onClick={save} disabled={isSaving || isTesting} className="inline-flex items-center gap-2 rounded-xl bg-black px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black">
+            <button type="button" onClick={save} disabled={isSaving || isTesting} className="inline-flex min-w-[104px] items-center justify-center gap-2 rounded-xl bg-black px-4 py-2.5 text-sm font-medium text-white transition-transform active:scale-[0.98] disabled:opacity-50 dark:bg-white dark:text-black">
               {isSaving && <Loader2 size={16} className="animate-spin" />}
-              保存配置
+              {isSaving ? '保存中…' : '保存配置'}
             </button>
           </div>
         </div>

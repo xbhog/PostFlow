@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import { AlertCircle, ImagePlus, Images, Loader2, Settings2, Wand2 } from 'lucide-react';
 import { handleSmartPaste } from '../lib/htmlToMarkdown';
 import type { AssetSourceType } from '../types/assets';
+import SessionPublishButton from './SessionPublishButton';
 import WeChatAccountSettings from './WeChatAccountSettings';
 
 interface EditorPanelProps {
@@ -127,6 +128,7 @@ export default function EditorPanel({
                         <Settings2 size={14} />图片存储
                     </button>
                     <WeChatAccountSettings isDesktop={isDesktop} />
+                    <SessionPublishButton isDesktop={isDesktop} />
                 </div>
             </div>
         </div>

@@ -19,7 +19,7 @@ describe('makeWeChatCompatible image modes', () => {
   it('converts remote image URLs by default for clipboard copying', async () => {
     const bytes = new Uint8Array([137, 80, 78, 71]);
     vi.stubGlobal('fetch', vi.fn(async () => new Response(
-      new Blob([bytes], { type: 'image/png' }),
+      new Blob([bytes.buffer as ArrayBuffer], { type: 'image/png' }),
       { status: 200, headers: { 'Content-Type': 'image/png' } }
     )));
 

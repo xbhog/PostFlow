@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import { AlertCircle, ImagePlus, Images, Loader2, Settings2, Wand2 } from 'lucide-react';
 import { handleSmartPaste } from '../lib/htmlToMarkdown';
 import type { AssetSourceType } from '../types/assets';
+import WeChatAccountSettings from './WeChatAccountSettings';
 
 interface EditorPanelProps {
     markdownInput: string;
@@ -125,6 +126,7 @@ export default function EditorPanel({
                     <button data-testid="storage-settings-button" type="button" onClick={onOpenStorageSettings} className="inline-flex items-center gap-1.5 rounded-lg border border-black/10 px-3 py-2 text-xs font-medium hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10">
                         <Settings2 size={14} />图片存储
                     </button>
+                    <WeChatAccountSettings isDesktop={isDesktop} />
                 </div>
             </div>
         </div>

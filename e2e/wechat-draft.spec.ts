@@ -1,0 +1,83 @@
+import { expect, test } from '@playwright/test';
+
+const tinyPng = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Zl1sAAAAASUVORK5CYII=',
+  'base64'
+);
+
+async function createArticle(page: import('@playwright/test').Page) {
+  await page.goto('/');
+  await page.getByRole('button', { name: /新建文章|创建第一篇文章/ }).first().click();
+  await expect(page.getByTestId('editor-input')).toBeVisible();
+}
+
+async function waitForSaved(page: import('@playwright/test').Page) {
+  await expect(page.getByTestId('save-status')).toContainText('已保存', { timeout: 7000 });
+}
+
+async function addImage(page: import('@playwright/test').Page) {
+  await page.getByTestId('image-file-input').setInputFiles({
+    name: 'cover.png',
+    mimeType: 'image/png',
+    buffer: tinyPng
+  });
+  await expect(page.getByTestId('editor-input')).toHaveValue(/https:\/\/mock-assets\.draftdock\.local\//, { timeout: 7000 });
+  await waitForSaved(page);
+}
+
+async function addMockAccount(page: import('@playwright/test').Page) {
+  await page.getByTestId('wechat-settings-button').click();
+  await page.getByLabel('公众号名称').fill('DraftDock Mock 公众号');
+  await page.getByLabel('AppID').fill('wxmock1234567890');
+  await page.getByLabel('AppSecret').fill('mock-secret');
+  await page.getByLabel('默认作者').fill('DraftDock');
+  await page.getByRole('button', { name: '保存配置' }).click();
+  await expect(page.getByText('公众号配置已保存。')).toBeVisible();
+  await page.getByRole('button', { name: '关闭公众号设置' }).click();
+}
+
+function getPublishModal(page: import('@playwright/test').Page) {
+  return page.locator('div.fixed').filter({
+    has: page.getByRole('heading', { name: '同步到公众号草稿箱' })
+  });
+}
+
+test('creates a browser mock draft and marks it outdated after local edits', async ({ page }) => {
+  await createArticle(page);
+  await addImage(page);
+  await addMockAccount(page);
+
+  await page.getByTestId('publish-draft-button').click();
+  const modal = getPublishModal(page);
+  await expect(modal).toBeVisible();
+  await expect(page.getByTestId('publish-account')).toHaveValue(/.+/);
+  await page.getByTestId('publish-digest').fill('这是一段公众号摘要。');
+
+  page.once('dialog', async (dialog) => dialog.accept());
+  await page.getByTestId('confirm-publish-draft').click();
+  await expect(modal.getByText('已同步到草稿箱')).toBeVisible({ timeout: 7000 });
+  await expect(modal.getByText(/mock-draft-/)).toBeVisible();
+
+  await page.getByRole('button', { name: '关闭发布面板' }).click();
+  await page.getByTestId('editor-input').fill('# 更新后的正文\n\n正文已经修改。\n\n![封面](https://mock-assets.draftdock.local/draftdock/cover.png)');
+  await waitForSaved(page);
+
+  await page.getByTestId('publish-draft-button').click();
+  await expect(getPublishModal(page).getByText('公众号草稿不是最新版本')).toBeVisible();
+});
+
+test('shows a browser mock draft failure without losing the article', async ({ page }) => {
+  await createArticle(page);
+  await addImage(page);
+  await addMockAccount(page);
+
+  await page.getByTestId('publish-draft-button').click();
+  const modal = getPublishModal(page);
+  await modal.locator('input').first().fill('mock-fail 草稿');
+  page.once('dialog', async (dialog) => dialog.accept());
+  await page.getByTestId('confirm-publish-draft').click();
+
+  await expect(modal.getByText('浏览器测试模式模拟草稿创建失败。')).toBeVisible({ timeout: 7000 });
+  await page.getByRole('button', { name: '关闭发布面板' }).click();
+  await expect(page.getByTestId('editor-input')).toHaveValue(/https:\/\/mock-assets\.draftdock\.local\//);
+});

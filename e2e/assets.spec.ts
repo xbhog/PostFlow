@@ -60,6 +60,6 @@ test('keeps a failed placeholder and replaces it after retry', async ({ page }) 
 
   await expect(page.getByText('浏览器测试模式模拟上传失败。')).toBeVisible({ timeout: 5000 });
   await expect(editor).toHaveValue(/draftdock-upload:\/\//);
-  await page.getByRole('button', { name: '重试' }).click();
+  await page.getByRole('button', { name: '重试', exact: true }).click();
   await expect(editor).toHaveValue(/https:\/\/mock-assets\.draftdock\.local\//, { timeout: 5000 });
 });

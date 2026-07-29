@@ -39,8 +39,15 @@ contextBridge.exposeInMainWorld('draftdock', {
     test: (input) => ipcRenderer.invoke('wechat-accounts:test', input)
   },
   publishing: {
+    validate: (input) => ipcRenderer.invoke('publishing:validate', input),
+    createDraft: (input) => ipcRenderer.invoke('publishing:create-draft', input),
     listRecords: (articleId) => ipcRenderer.invoke('publishing:list-records', articleId),
     getRecord: (articleId, publishId) => ipcRenderer.invoke('publishing:get-record', articleId, publishId),
-    createRecord: (input) => ipcRenderer.invoke('publishing:create-record', input)
+    createRecord: (input) => ipcRenderer.invoke('publishing:create-record', input),
+    onProgress: (callback) => {
+      const listener = (_event, payload) => callback(payload);
+      ipcRenderer.on('publishing:progress', listener);
+      return () => ipcRenderer.removeListener('publishing:progress', listener);
+    }
   }
 });

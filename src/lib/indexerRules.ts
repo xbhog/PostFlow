@@ -98,7 +98,7 @@ export const MARKDOWN_RULES: Readonly<Record<ElementType, {
   }),
 
   image: Object.freeze({
-    match: (_trimmed: string) => false, // 图片不在行级别处理
+    match: () => false, // 图片不在行级别处理
   }),
 });
 

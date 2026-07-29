@@ -1,18 +1,28 @@
 # DraftDock
 
-本地优先的 AI 公众号写作、排版与发布工作台。
+本地优先的公众号写作、排版与发布工作台。
 
 ```text
 本地写作
 → 图片保存到本地并上传自己的对象存储
 → 选择公众号排版主题
-→ AI 生成摘要并检查文章
 → 复制到公众号或同步草稿箱
+→ 后续接入 AI 发布检查
 ```
 
-> 项目处于 MVP 开发阶段。当前开发分支已经包含 Electron 本地文章工作区和 Cloudflare R2 图片资产管线。
+> 当前 `main` 已完成本地文章工作区和 Cloudflare R2 图片资产管线。下一阶段是微信公众号草稿箱同步。
 
 ![DraftDock 界面预览](media/screenshot.png)
+
+## 项目进度
+
+| 阶段 | 状态 | 主要能力 |
+|---|---|---|
+| 第一阶段：本地文章工作区 | 已完成 | Electron、本地 Markdown、文章列表、自动保存、桌面打包 |
+| 第二阶段：R2 图片资产管线 | 已完成 | 图片处理、R2 上传、SHA-256 去重、失败恢复、Manifest |
+| 第三阶段：公众号草稿同步 | 开发中 | 公众号配置、封面与发布参数、草稿创建、版本记录 |
+| 第四阶段：AI 发布助手 | 规划中 | 标题、摘要、结构检查和移动端阅读建议 |
+| 第五阶段：产品化交付 | 规划中 | Release、自动更新、演示材料和稳定性收尾 |
 
 ## 当前能力
 
@@ -43,8 +53,6 @@
 
 ### R2 图片资产管线
 
-开发分支：`agent/r2-asset-pipeline`
-
 - 剪贴板粘贴、拖拽和文件选择
 - 稳定的 `draftdock-upload://<asset-id>` Markdown 占位符
 - 原图与处理后图片分目录保存
@@ -52,14 +60,14 @@
 - GIF 原样保留
 - SHA-256 内容 Hash
 - Cloudflare R2 连接测试
-- 基于 HeadObject 的远程去重
+- 基于 `HeadObject` 的远程去重
 - 三并发上传队列
 - 失败和中断重试
 - `assets/manifest.json` 状态恢复
 - 上传成功后自动替换公开 URL
 - 未完成图片拦截复制和导出
-- Electron safeStorage 加密 R2 密钥
-- 浏览器 MockStorageProvider
+- Electron `safeStorage` 加密 R2 密钥
+- 浏览器 `MockStorageProvider`
 
 图片目录：
 
@@ -70,23 +78,22 @@ articles/<article-id>/assets/
 └── processed/
 ```
 
-## 后续路线
+## 下一阶段：公众号草稿同步
 
-### AI 辅助发布
+第三阶段只负责将一篇已完成的本地文章可靠地同步到指定公众号草稿箱，不包含自动群发或定时发布。
 
-- 三种标题候选
-- 公众号摘要生成
-- 长段落、标题层级和文章结构检查
-- 图片说明与 Alt 文本建议
-- 所有修改由用户确认后应用
+计划包括：
 
-### 微信公众号发布
-
-- 作者、摘要、封面和原文链接设置
-- 公众号账号配置
-- 一键同步到公众号草稿箱
-- 同步历史和本地版本状态
+- 公众号 AppID 与 AppSecret 配置
+- 账号连接与接口能力测试
+- 标题、作者、摘要、封面和原文链接
+- 正文图片转换为公众号可用资源
+- 封面素材处理
+- 创建公众号草稿
+- 同步记录与文章版本状态
 - 保留“复制到公众号”作为兜底方式
+
+详细需求见 [`docs/PHASE3-WECHAT-DRAFT-SYNC.md`](docs/PHASE3-WECHAT-DRAFT-SYNC.md)。
 
 ## 技术栈
 
@@ -106,7 +113,7 @@ articles/<article-id>/assets/
 
 - Electron
 - electron-builder
-- Electron safeStorage
+- Electron `safeStorage`
 - Node.js `fs` / `crypto`
 - Sharp
 - AWS SDK for JavaScript v3
@@ -116,7 +123,7 @@ articles/<article-id>/assets/
 
 - Vitest
 - Playwright
-- 浏览器 MockStorageProvider
+- 浏览器 Mock Provider
 
 ## 本地开发
 
@@ -125,16 +132,14 @@ articles/<article-id>/assets/
 - Node.js 20+
 - pnpm 9+
 
-### 克隆当前开发分支
+### 克隆主分支
 
 ```bash
 git clone https://github.com/xbhog/draftdock.git
 cd draftdock
-git checkout agent/r2-asset-pipeline
+git checkout main
 pnpm install
 ```
-
-本阶段新增 `sharp` 和 `@aws-sdk/client-s3`，首次安装后需要提交更新的 `pnpm-lock.yaml`。
 
 ### 浏览器测试模式
 
@@ -145,9 +150,9 @@ pnpm dev
 浏览器模式：
 
 - 文章保存在 localStorage
-- 图片使用 MockStorageProvider
+- 图片使用 Mock Provider
 - 不读取或保存真实 R2 密钥
-- 不向真实对象存储发请求
+- 不调用真实微信公众号接口
 
 ### Electron 桌面模式
 
@@ -161,22 +166,17 @@ pnpm dev:desktop
 Documents/DraftDockWorkspace/
 ```
 
-### 构建
+### 构建与测试
 
 ```bash
+pnpm lint
 pnpm build
+pnpm test
+pnpm test:e2e
 pnpm build:desktop
 ```
 
 桌面安装包输出到 `release/`。
-
-### 测试
-
-```bash
-pnpm lint
-pnpm test
-pnpm test:e2e
-```
 
 测试说明：
 
@@ -187,10 +187,10 @@ pnpm test:e2e
 ## 安全边界
 
 - Renderer 不直接使用 Node.js
-- 所有文件、图片和 R2 操作通过 Preload 白名单 IPC
-- R2 密钥只在 Electron 主进程解密
+- 所有文件、图片和外部 API 通过 Preload 白名单 IPC
+- R2 Secret 和公众号 AppSecret 只在 Electron Main Process 解密
 - 密钥不会进入 Markdown、Manifest、导出文件或日志
-- 图片处理或上传失败不会删除本地原图
+- 图片处理、草稿同步或外部 API 失败不得影响本地文章保存
 - 浏览器模式不能使用真实密钥
 
 ## 项目定位

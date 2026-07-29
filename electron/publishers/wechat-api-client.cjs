@@ -1,5 +1,20 @@
 const { classifyWeChatError, createWeChatApiError } = require('./wechat-token-service.cjs');
 
+async function parseResponse(response) {
+  const contentType = String(response.headers.get('content-type') || '');
+  if (contentType.includes('application/json')) return response.json();
+  const text = await response.text();
+  const trimmed = text.trim();
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    try {
+      return JSON.parse(trimmed);
+    } catch {
+      return text;
+    }
+  }
+  return text;
+}
+
 class WeChatApiClient {
   constructor({ tokenService, fetchImpl = fetch }) {
     this.tokenService = tokenService;
@@ -23,7 +38,8 @@ class WeChatApiClient {
     } catch (error) {
       throw createWeChatApiError(options.errorCode || 'WECHAT_API_FAILED', '无法连接微信公众号接口。', {
         cause: error?.message,
-        pathname
+        pathname,
+        networkFailure: true
       });
     }
 
@@ -34,11 +50,7 @@ class WeChatApiClient {
       });
     }
 
-    const contentType = String(response.headers.get('content-type') || '');
-    const payload = contentType.includes('application/json')
-      ? await response.json()
-      : await response.text();
-
+    const payload = await parseResponse(response);
     if (payload && typeof payload === 'object') {
       const apiError = classifyWeChatError(payload, options.errorCode || 'WECHAT_API_FAILED');
       if (apiError) {
@@ -66,4 +78,4 @@ class WeChatApiClient {
   }
 }
 
-module.exports = { WeChatApiClient };
+module.exports = { WeChatApiClient, parseResponse };

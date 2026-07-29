@@ -6,11 +6,19 @@ const { ArticleService } = require('./article-service.cjs');
 const { CredentialService } = require('./credential-service.cjs');
 const { AssetService, MAX_BATCH_SIZE } = require('./asset-service.cjs');
 const { R2StorageProvider } = require('./storage/r2-storage-provider.cjs');
+const { WeChatAccountService } = require('./wechat-account-service.cjs');
+const { WeChatTokenService } = require('./publishers/wechat-token-service.cjs');
+const { WeChatApiClient } = require('./publishers/wechat-api-client.cjs');
+const { PublishRecordService } = require('./publish-record-service.cjs');
 
 let mainWindow = null;
 let articleService = null;
 let credentialService = null;
 let assetService = null;
+let wechatAccountService = null;
+let wechatTokenService = null;
+let wechatApiClient = null;
+let publishRecordService = null;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -127,11 +135,35 @@ function registerIpcHandlers() {
       });
     }));
   });
+
+  ipcMain.handle('wechat-accounts:list', async () => wechatAccountService.list());
+  ipcMain.handle('wechat-accounts:save', async (_event, input) => {
+    const account = await wechatAccountService.save(input);
+    wechatTokenService.clear(account.id);
+    return account;
+  });
+  ipcMain.handle('wechat-accounts:remove', async (_event, accountId) => {
+    const result = await wechatAccountService.remove(accountId);
+    wechatTokenService.clear(accountId);
+    return result;
+  });
+  ipcMain.handle('wechat-accounts:test', async (_event, input) => {
+    const account = await wechatAccountService.resolveInput(input);
+    return wechatApiClient.testConnection(account);
+  });
+
+  ipcMain.handle('publishing:list-records', async (_event, articleId) => publishRecordService.list(articleId));
+  ipcMain.handle('publishing:get-record', async (_event, articleId, publishId) => publishRecordService.get(articleId, publishId));
+  ipcMain.handle('publishing:create-record', async (_event, input) => publishRecordService.create(input));
 }
 
 app.whenReady().then(async () => {
   articleService = new ArticleService(app);
   credentialService = new CredentialService(app);
+  wechatAccountService = new WeChatAccountService(app);
+  wechatTokenService = new WeChatTokenService();
+  wechatApiClient = new WeChatApiClient({ tokenService: wechatTokenService });
+  publishRecordService = new PublishRecordService(articleService);
   await articleService.initialize();
   assetService = new AssetService({
     articleService,

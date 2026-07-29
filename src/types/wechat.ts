@@ -59,6 +59,10 @@ export interface PublishRecord {
   snapshotDirectory?: string;
   createdAt: string;
   updatedAt: string;
+  progress?: {
+    current: number;
+    total: number;
+  };
 }
 
 export interface CreatePublishRecordInput {
@@ -66,6 +70,35 @@ export interface CreatePublishRecordInput {
   articleVersion: number;
   target: PublishTarget;
   accountId?: string;
+}
+
+export interface CreateWeChatDraftInput {
+  articleId: string;
+  articleVersion: number;
+  accountId: string;
+  title: string;
+  author: string;
+  digest: string;
+  contentSourceUrl?: string;
+  coverUrl: string;
+  needOpenComment: boolean;
+  onlyFansCanComment: boolean;
+  themeId: string;
+  sourceHtml: string;
+}
+
+export interface PublishValidationResult {
+  ok: boolean;
+  articleVersion: number;
+  imageCount: number;
+  titleLength: number;
+  digestLength: number;
+}
+
+export interface PublishProgressEvent {
+  articleId: string;
+  publishId: string;
+  record: PublishRecord;
 }
 
 export interface WeChatBridge {
@@ -76,8 +109,11 @@ export interface WeChatBridge {
     test(input: SaveWeChatAccountInput): Promise<WeChatConnectionResult>;
   };
   publishing: {
+    validate(input: CreateWeChatDraftInput): Promise<PublishValidationResult>;
+    createDraft(input: CreateWeChatDraftInput): Promise<PublishRecord>;
     listRecords(articleId: string): Promise<PublishRecord[]>;
     getRecord(articleId: string, publishId: string): Promise<PublishRecord>;
     createRecord(input: CreatePublishRecordInput): Promise<PublishRecord>;
+    onProgress(callback: (event: PublishProgressEvent) => void): () => void;
   };
 }

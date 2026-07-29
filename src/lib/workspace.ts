@@ -18,7 +18,9 @@ export function getActiveArticleSession() {
 export function onActiveArticleSession(callback: (article: ArticleDocument | null) => void) {
   sessionListeners.add(callback);
   callback(activeArticleSession);
-  return () => sessionListeners.delete(callback);
+  return () => {
+    sessionListeners.delete(callback);
+  };
 }
 
 export const workspaceClient: WorkspaceBridge = {

@@ -63,6 +63,12 @@
     "vitest": "^4.0.18",
     "wait-on": "^8.0.2"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "esbuild"
+    ]
+  },
   "build": {
     "appId": "com.draftdock.app",
     "productName": "DraftDock",

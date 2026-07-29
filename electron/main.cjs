@@ -10,6 +10,7 @@ const { WeChatAccountService } = require('./wechat-account-service.cjs');
 const { WeChatTokenService } = require('./publishers/wechat-token-service.cjs');
 const { WeChatApiClient } = require('./publishers/wechat-api-client.cjs');
 const { WeChatPublisher } = require('./publishers/wechat-publisher.cjs');
+const { sanitizePublicationHtml } = require('./publishers/publication-html.cjs');
 const { PublishRecordService } = require('./publish-record-service.cjs');
 
 let mainWindow = null;
@@ -21,6 +22,13 @@ let wechatTokenService = null;
 let wechatApiClient = null;
 let publishRecordService = null;
 let wechatPublisher = null;
+
+function sanitizePublishInput(input) {
+  return {
+    ...input,
+    sourceHtml: sanitizePublicationHtml(input?.sourceHtml)
+  };
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -154,8 +162,8 @@ function registerIpcHandlers() {
     return wechatApiClient.testConnection(account);
   });
 
-  ipcMain.handle('publishing:validate', async (_event, input) => wechatPublisher.validate(input));
-  ipcMain.handle('publishing:create-draft', async (_event, input) => wechatPublisher.createDraft(input));
+  ipcMain.handle('publishing:validate', async (_event, input) => wechatPublisher.validate(sanitizePublishInput(input)));
+  ipcMain.handle('publishing:create-draft', async (_event, input) => wechatPublisher.createDraft(sanitizePublishInput(input)));
   ipcMain.handle('publishing:list-records', async (_event, articleId) => publishRecordService.list(articleId));
   ipcMain.handle('publishing:get-record', async (_event, articleId, publishId) => publishRecordService.get(articleId, publishId));
   ipcMain.handle('publishing:create-record', async (_event, input) => publishRecordService.create(input));

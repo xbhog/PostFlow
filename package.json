@@ -1,7 +1,7 @@
 {
   "name": "draftdock",
   "private": false,
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "A local-first AI writing and publishing workspace for WeChat Official Accounts.",
   "license": "MIT",
   "repository": {
@@ -32,9 +32,11 @@
     "markdown-it": "^14.1.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "sanitize-html": "^2.17.6",
     "sharp": "^0.35.3",
     "turndown": "^7.2.2",
-    "turndown-plugin-gfm": "^1.0.2"
+    "turndown-plugin-gfm": "^1.0.2",
+    "undici": "7.22.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.13.0",

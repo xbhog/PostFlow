@@ -2,6 +2,9 @@ import React, { useRef } from 'react';
 import { AlertCircle, ImagePlus, Images, Loader2, Settings2, Wand2 } from 'lucide-react';
 import { handleSmartPaste } from '../lib/htmlToMarkdown';
 import type { AssetSourceType } from '../types/assets';
+import SessionPublishButton from './SessionPublishButton';
+import WeChatAccountSettings from './WeChatAccountSettings';
+import type { SaveStatus } from './ArticleEditorBar';
 
 interface EditorPanelProps {
     markdownInput: string;
@@ -16,6 +19,7 @@ interface EditorPanelProps {
     failedAssetCount: number;
     activeAssetCount: number;
     isDesktop: boolean;
+    saveStatus: SaveStatus;
 }
 
 export default function EditorPanel({
@@ -30,7 +34,8 @@ export default function EditorPanel({
     assetCount,
     failedAssetCount,
     activeAssetCount,
-    isDesktop
+    isDesktop,
+    saveStatus
 }: EditorPanelProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -125,6 +130,8 @@ export default function EditorPanel({
                     <button data-testid="storage-settings-button" type="button" onClick={onOpenStorageSettings} className="inline-flex items-center gap-1.5 rounded-lg border border-black/10 px-3 py-2 text-xs font-medium hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10">
                         <Settings2 size={14} />图片存储
                     </button>
+                    <WeChatAccountSettings isDesktop={isDesktop} />
+                    <SessionPublishButton isDesktop={isDesktop} saveStatus={saveStatus} />
                 </div>
             </div>
         </div>

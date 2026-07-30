@@ -31,5 +31,23 @@ contextBridge.exposeInMainWorld('draftdock', {
       ipcRenderer.on('assets:progress', listener);
       return () => ipcRenderer.removeListener('assets:progress', listener);
     }
+  },
+  wechatAccounts: {
+    list: () => ipcRenderer.invoke('wechat-accounts:list'),
+    save: (input) => ipcRenderer.invoke('wechat-accounts:save', input),
+    remove: (accountId) => ipcRenderer.invoke('wechat-accounts:remove', accountId),
+    test: (input) => ipcRenderer.invoke('wechat-accounts:test', input)
+  },
+  publishing: {
+    validate: (input) => ipcRenderer.invoke('publishing:validate', input),
+    createDraft: (input) => ipcRenderer.invoke('publishing:create-draft', input),
+    listRecords: (articleId) => ipcRenderer.invoke('publishing:list-records', articleId),
+    getRecord: (articleId, publishId) => ipcRenderer.invoke('publishing:get-record', articleId, publishId),
+    resolveUnknown: (input) => ipcRenderer.invoke('publishing:resolve-unknown', input),
+    onProgress: (callback) => {
+      const listener = (_event, payload) => callback(payload);
+      ipcRenderer.on('publishing:progress', listener);
+      return () => ipcRenderer.removeListener('publishing:progress', listener);
+    }
   }
 });

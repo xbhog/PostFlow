@@ -19,8 +19,9 @@ DraftDock currently changes or extends the upstream project in the following are
 
 - Project name, package metadata, documentation, and application branding
 - Product positioning as a local-first writing and publishing workspace
-- Planned local article management
-- Planned Cloudflare R2 image hosting and asset pipeline
+- Local article management and Electron desktop packaging
+- Cloudflare R2 image hosting, image optimization, deduplication, and recovery
+- Secure local credential management with Electron safeStorage
+- WeChat Official Account configuration, media upload, and draft synchronization
+- Local publish snapshots, progress reporting, and version history
 - Planned AI-assisted title, digest, and publishing checks
-- Planned WeChat Official Account draft synchronization
-- Planned Electron desktop packaging and local credential management

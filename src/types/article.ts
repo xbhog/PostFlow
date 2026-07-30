@@ -1,4 +1,5 @@
 import type { AssetBridge } from './assets';
+import type { WeChatBridge } from './wechat';
 
 export interface ArticleSummary {
   id: string;
@@ -31,7 +32,7 @@ export interface WorkspaceSelectionResult {
   workspacePath: string;
 }
 
-export interface WorkspaceBridge extends AssetBridge {
+export interface WorkspaceBridge extends AssetBridge, WeChatBridge {
   isDesktop: boolean;
   workspace: {
     getPath(): Promise<string>;

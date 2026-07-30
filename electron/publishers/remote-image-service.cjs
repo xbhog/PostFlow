@@ -6,7 +6,7 @@ const { createWeChatApiError } = require('./wechat-token-service.cjs');
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_REDIRECTS = 3;
-const DOWNLOAD_TIMEOUT_MS = 15000;
+const DOWNLOAD_TIMEOUT_MS = 60 * 1000;
 
 function isPrivateIpv4(address) {
   const parts = address.split('.').map(Number);
@@ -100,13 +100,21 @@ async function validateRemoteUrl(value, lookupImpl) {
   return (await resolveRemoteUrl(value, lookupImpl)).url;
 }
 
-function createPinnedDispatcher(addresses) {
+function createPinnedLookup(addresses) {
   const selected = addresses[0];
+  return (_hostname, options, callback) => {
+    if (options?.all) {
+      callback(null, [{ address: selected.address, family: selected.family }]);
+      return;
+    }
+    callback(null, selected.address, selected.family);
+  };
+}
+
+function createPinnedDispatcher(addresses) {
   return new Agent({
     connect: {
-      lookup(_hostname, _options, callback) {
-        callback(null, selected.address, selected.family);
-      }
+      lookup: createPinnedLookup(addresses)
     }
   });
 }
@@ -223,7 +231,9 @@ class RemoteImageService {
 module.exports = {
   RemoteImageService,
   validateRemoteUrl,
+  createPinnedLookup,
   createPinnedDispatcher,
   isPrivateAddress,
-  MAX_IMAGE_BYTES
+  MAX_IMAGE_BYTES,
+  DOWNLOAD_TIMEOUT_MS
 };

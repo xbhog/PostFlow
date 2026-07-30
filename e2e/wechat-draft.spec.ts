@@ -15,11 +15,15 @@ async function waitForSaved(page: import('@playwright/test').Page) {
   await expect(page.getByTestId('save-status')).toContainText('已保存', { timeout: 7000 });
 }
 
-async function addImage(page: import('@playwright/test').Page) {
+async function addImage(
+  page: import('@playwright/test').Page,
+  name = 'cover.png',
+  buffer = tinyPng
+) {
   await page.getByTestId('image-file-input').setInputFiles({
-    name: 'cover.png',
+    name,
     mimeType: 'image/png',
-    buffer: tinyPng
+    buffer
   });
   await expect(page.getByTestId('editor-input')).toHaveValue(/https:\/\/mock-assets\.draftdock\.local\//, { timeout: 7000 });
   await waitForSaved(page);
@@ -45,17 +49,30 @@ function getPublishModal(page: import('@playwright/test').Page) {
 test('creates a browser mock draft and marks it outdated after local edits', async ({ page }) => {
   await createArticle(page);
   await addImage(page);
+  await addImage(page, 'cover-2.png', Buffer.concat([tinyPng, Buffer.from([0])]));
   await addMockAccount(page);
 
   await page.getByTestId('publish-draft-button').click();
   const modal = getPublishModal(page);
   await expect(modal).toBeVisible();
   await expect(page.getByTestId('publish-account')).toHaveValue(/.+/);
-  await page.getByTestId('publish-digest').fill('这是一段公众号摘要。');
+  await expect(modal.getByText('原文链接')).toHaveCount(0);
+  await page.getByTestId('generate-publish-digest').click();
+  await expect(page.getByTestId('publish-digest')).not.toHaveValue('');
+  await modal.getByLabel('开启评论').check();
+  await modal.getByRole('button', { name: 'cover-2.png' }).click();
+  await expect(modal.getByLabel('开启评论')).toBeChecked();
 
-  page.once('dialog', async (dialog) => dialog.accept());
   await page.getByTestId('confirm-publish-draft').click();
+  const confirmation = page.getByTestId('publish-confirmation');
+  await expect(confirmation).toBeVisible();
+  await expect(confirmation).toContainText('DraftDock Mock 公众号');
+  await expect(confirmation).toContainText('正文图片');
+  await page.getByTestId('approve-publish-draft').click();
+  await expect(page.getByTestId('publish-progress')).toBeVisible();
+  await expect(page.getByRole('progressbar', { name: '草稿同步进度' })).toBeVisible();
   await expect(modal.getByText('已同步到草稿箱')).toBeVisible({ timeout: 7000 });
+  await expect(page.getByTestId('app-notice')).toContainText('已同步到“DraftDock Mock 公众号”草稿箱');
   await expect(modal.getByText(/mock-draft-/)).toBeVisible();
 
   await page.getByRole('button', { name: '关闭发布面板' }).click();
@@ -74,8 +91,9 @@ test('shows a browser mock draft failure without losing the article', async ({ p
   await page.getByTestId('publish-draft-button').click();
   const modal = getPublishModal(page);
   await modal.locator('input').first().fill('mock-fail 草稿');
-  page.once('dialog', async (dialog) => dialog.accept());
   await page.getByTestId('confirm-publish-draft').click();
+  await expect(page.getByTestId('publish-confirmation')).toBeVisible();
+  await page.getByTestId('approve-publish-draft').click();
 
   await expect(page.getByTestId('publish-error')).toHaveText('浏览器测试模式模拟草稿创建失败。', { timeout: 7000 });
   await page.getByRole('button', { name: '关闭发布面板' }).click();
@@ -106,8 +124,9 @@ test('dialogs render in the viewport, close with Escape, and unknown results can
   expect(publishBox!.y + publishBox!.height).toBeLessThanOrEqual(920);
 
   await publishDialog.locator('input').first().fill('mock-unknown 草稿');
-  page.once('dialog', async (dialog) => dialog.accept());
   await page.getByTestId('confirm-publish-draft').click();
+  await expect(page.getByTestId('publish-confirmation')).toBeVisible();
+  await page.getByTestId('approve-publish-draft').click();
   await expect(page.getByTestId('publish-error')).toHaveText('浏览器测试模式模拟草稿创建结果未知。', { timeout: 7000 });
   await expect(publishDialog.getByRole('button', { name: '标记为已同步' })).toBeVisible();
   page.once('dialog', async (dialog) => dialog.accept());

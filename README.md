@@ -1,158 +1,175 @@
 # DraftDock
 
-本地优先的公众号写作、排版与发布工作台。
+本地优先的微信公众号写作、排版与草稿同步工作台。
+
+DraftDock 把 Markdown 写作、图片自托管、公众号排版和草稿同步放进一个桌面应用。文章和发布记录保存在自己的电脑，图片上传到自己的 Cloudflare R2，公众号密钥只由 Electron 主进程处理。
 
 ```text
-本地写作
-→ 图片保存到本地并上传自己的对象存储
-→ 选择公众号排版主题
-→ 复制到公众号或同步草稿箱
-→ 后续接入 AI 发布检查
+写作与整理
+→ 图片保存并上传自己的 R2
+→ 选择公众号主题与封面
+→ 核对标题、摘要和评论设置
+→ 同步到公众号草稿箱
+→ 在公众号后台做最终预览和发布
 ```
 
-> 当前 `main` 已完成本地文章工作区和 Cloudflare R2 图片资产管线。下一阶段是微信公众号草稿箱同步。
+> DraftDock 只创建草稿，不会自动群发，也不会绕过用户确认。
 
 ![DraftDock 界面预览](media/screenshot.png)
 
-## 项目进度
+## 为什么做 DraftDock
 
-| 阶段 | 状态 | 主要能力 |
-|---|---|---|
-| 第一阶段：本地文章工作区 | 已完成 | Electron、本地 Markdown、文章列表、自动保存、桌面打包 |
-| 第二阶段：R2 图片资产管线 | 已完成 | 图片处理、R2 上传、SHA-256 去重、失败恢复、Manifest |
-| 第三阶段：公众号草稿同步 | 开发中 | 公众号配置、封面与发布参数、草稿创建、版本记录 |
-| 第四阶段：AI 发布助手 | 规划中 | 标题、摘要、结构检查和移动端阅读建议 |
-| 第五阶段：产品化交付 | 规划中 | Release、自动更新、演示材料和稳定性收尾 |
+公众号作者经常在飞书、Notion、Word、AI 对话和 Markdown 编辑器之间来回搬运内容。正文可以复制，图片、排版、封面和发布记录却仍要重复处理。
 
-## 当前能力
+DraftDock 解决的是这条最后一公里：
 
-### Markdown 与公众号排版
+- 原稿始终留在本地，可直接读取和备份。
+- 图片进入自己的对象存储，不依赖第三方图床。
+- 同一份 Markdown 可以切换主题、预览并复制到公众号。
+- 配置公众号后，可以直接创建草稿并查看实时进度。
+- 同步失败不会影响本地文章，结果不确定时也不会盲目重试。
+
+## 已实现能力
+
+### 写作与排版
 
 - Markdown 实时编辑与预览
 - 飞书、Notion、Word 和网页富文本转 Markdown
-- 30 套公众号主题
+- 30 套公众号排版主题
 - 手机、平板和桌面预览
-- 微信兼容 HTML 转换
-- 富文本复制到公众号后台
-- HTML 和 PDF 导出
-- 编辑区与预览区滚动同步
+- 编辑区与预览区双向滚动同步
 - 点击预览内容定位 Markdown
+- 微信兼容 HTML 转换
+- 富文本复制、HTML 导出和 PDF 导出
 
 ### 本地文章工作区
 
-- Electron 桌面入口
+- Electron 桌面应用
 - 默认工作目录 `Documents/DraftDockWorkspace`
 - 自定义工作目录
-- 文章列表与本地搜索基础
-- 新建、打开和删除文章
-- `article.md + metadata.json + assets/` 文件结构
-- 800ms 防抖自动保存
-- 保存状态和文章版本
-- 浏览器 localStorage 测试降级
-- Windows NSIS 和 Portable 构建配置
+- 新建、打开、删除和自动保存文章
+- 800ms 防抖保存与文章版本记录
+- `article.md + metadata.json + assets/` 透明文件结构
+- Windows NSIS 安装包和 Portable 便携版
+- 浏览器 localStorage Mock 模式，便于开发和自动化测试
 
-### R2 图片资产管线
+### 图片资产管线
 
 - 剪贴板粘贴、拖拽和文件选择
-- 稳定的 `draftdock-upload://<asset-id>` Markdown 占位符
-- 原图与处理后图片分目录保存
-- PNG、JPEG 和 WebP 使用 Sharp 优化
-- GIF 原样保留
-- SHA-256 内容 Hash
-- Cloudflare R2 连接测试
-- 基于 `HeadObject` 的远程去重
-- 三并发上传队列
-- 失败和中断重试
-- `assets/manifest.json` 状态恢复
-- 上传成功后自动替换公开 URL
-- 未完成图片拦截复制和导出
+- PNG、JPEG、WebP 优化，GIF 原样保留
+- SHA-256 内容寻址和远程去重
+- Cloudflare R2 上传、连接测试与失败重试
+- 三并发上传队列和中断恢复
+- `assets/manifest.json` 状态记录
+- 上传成功后自动替换 Markdown 图片 URL
+- 未完成图片拦截复制、导出和草稿同步
 - Electron `safeStorage` 加密 R2 密钥
-- 浏览器 `MockStorageProvider`
 
-图片目录：
+### 微信公众号草稿同步
 
-```text
-articles/<article-id>/assets/
-├── manifest.json
-├── originals/
-└── processed/
-```
-
-## 下一阶段：公众号草稿同步
-
-第三阶段只负责将一篇已完成的本地文章可靠地同步到指定公众号草稿箱，不包含自动群发或定时发布。
-
-计划包括：
-
-- 公众号 AppID 与 AppSecret 配置
-- 账号连接与接口能力测试
-- 标题、作者、摘要、封面和原文链接
-- 正文图片转换为公众号可用资源
-- 封面素材处理
-- 创建公众号草稿
-- 同步记录与文章版本状态
+- 多公众号配置、连接测试和默认作者
+- AppSecret 使用 Electron `safeStorage` 加密
+- 从正文生成可编辑摘要，自动清理标题、代码和图片标记
+- 从正文图片中选择封面
+- 评论与仅粉丝评论设置
+- 自定义发布核验卡，不调用系统原生确认框
+- 正文图片上传为公众号可用 URL
+- 封面上传为永久素材并获取 `media_id`
+- 七阶段实时同步进度、图片上传数量和完成提示
+- 本地版本、远程草稿 ID、错误步骤和历史记录
+- 草稿过期提醒
+- `unknown` 状态人工确认，避免重复创建草稿
 - 保留“复制到公众号”作为兜底方式
 
-详细需求见 [`docs/PHASE3-WECHAT-DRAFT-SYNC.md`](docs/PHASE3-WECHAT-DRAFT-SYNC.md)。
+## 草稿同步流程
 
-## 技术栈
+1. 在“公众号”设置中填写名称、AppID 和 AppSecret。
+2. 测试连接并保存配置。
+3. 完成文章写作，等待正文图片上传成功。
+4. 点击“同步草稿”，确认标题、作者、摘要、封面和评论设置。
+5. 在核验卡中检查目标公众号、版本和图片数量。
+6. 确认后在右侧查看实时同步进度。
+7. 成功后到公众号后台完成最终预览和发布。
 
-### 排版与界面
+同步过程依次执行：
 
-- React 18
-- TypeScript
-- Vite 5
-- Tailwind CSS 3
-- markdown-it
-- highlight.js
-- Turndown
-- html2pdf.js
-- Framer Motion
+```text
+校验文章
+→ 生成公众号 HTML
+→ 上传正文图片
+→ 上传封面素材
+→ 创建公众号草稿
+→ 保存同步记录
+→ 完成
+```
 
-### 桌面与图片
+本地 `article.md` 始终保留原始 R2 URL。公众号专用图片 URL 和草稿 ID 只写入发布快照与同步记录。
 
-- Electron
-- electron-builder
-- Electron `safeStorage`
-- Node.js `fs` / `crypto`
-- Sharp
-- AWS SDK for JavaScript v3
-- Cloudflare R2
+## 数据目录
 
-### 测试
+```text
+DraftDockWorkspace/
+├── articles/
+│   └── <article-id>/
+│       ├── article.md
+│       ├── metadata.json
+│       ├── assets/
+│       │   ├── manifest.json
+│       │   ├── originals/
+│       │   └── processed/
+│       └── publishes/
+│           ├── index.json
+│           └── <publish-id>/
+│               ├── input.json
+│               ├── source.html
+│               ├── wechat.html
+│               ├── image-map.json
+│               └── result.json
+└── exports/
+```
 
-- Vitest
-- Playwright
-- 浏览器 Mock Provider
+这些文件都是普通文本和图片，可以独立备份，不依赖 DraftDock 官方云端服务。
 
-## 本地开发
+## 安全边界
+
+- Renderer 不启用 Node.js，通过 Preload 白名单 IPC 调用桌面能力。
+- IPC 校验调用方窗口与 frame，外部页面不能调用特权接口。
+- R2 Secret 和公众号 AppSecret 仅由 Electron 主进程解密。
+- Access Token 只缓存在内存，不写入文章、快照或日志。
+- 远程图片仅接受 HTTPS，并阻止私网、保留地址、DNS 重绑定和危险重定向。
+- 下载限制图片类型、字节数和超时时间。
+- 发布 HTML 使用标签与属性白名单清理危险内容。
+- 浏览器模式只保存 Mock 元数据，不保存真实 AppSecret，也不调用微信接口。
+- 同步失败、图片失败或记录写入失败都不能破坏本地 Markdown。
+
+## 快速开始
 
 ### 环境要求
 
 - Node.js 20+
 - pnpm 9+
+- Windows 桌面模式需要 Electron 支持的系统环境
 
-### 克隆主分支
+### 安装
 
 ```bash
 git clone https://github.com/xbhog/draftdock.git
 cd draftdock
-git checkout main
 pnpm install
 ```
 
-### 浏览器测试模式
+### 浏览器 Mock 模式
 
 ```bash
 pnpm dev
 ```
 
-浏览器模式：
+浏览器模式用于界面开发和自动化测试：
 
-- 文章保存在 localStorage
-- 图片使用 Mock Provider
-- 不读取或保存真实 R2 密钥
-- 不调用真实微信公众号接口
+- 文章、图片状态和发布记录保存在 localStorage
+- 图片使用 Mock R2 URL
+- 公众号同步生成 `mock-draft-*` 草稿 ID
+- 不读取本机密钥，不请求真实 R2 或微信公众号接口
 
 ### Electron 桌面模式
 
@@ -160,49 +177,88 @@ pnpm dev
 pnpm dev:desktop
 ```
 
-默认工作目录：
+桌面模式会读写本地工作区，并可以连接 Cloudflare R2 与微信公众号 API。
 
-```text
-Documents/DraftDockWorkspace/
-```
-
-### 构建与测试
+## 构建与验证
 
 ```bash
 pnpm lint
-pnpm build
 pnpm test
 pnpm test:e2e
+pnpm build
 pnpm build:desktop
 ```
 
 桌面安装包输出到 `release/`。
 
-测试说明：
+## 技术架构
 
-- 第一阶段：[`docs/TESTING.md`](docs/TESTING.md)
-- R2 图片管线：[`docs/TESTING-R2.md`](docs/TESTING-R2.md)
-- 产品需求：[`docs/PRD.md`](docs/PRD.md)
+```text
+React Renderer
+  ├── Markdown 编辑、主题与预览
+  ├── 图片状态与发布面板
+  └── 浏览器 Mock Provider
+          ↓ 白名单 IPC
+Electron Preload
+          ↓
+Electron Main
+  ├── ArticleService
+  ├── AssetService / Sharp / R2
+  ├── CredentialService / safeStorage
+  ├── WeChatTokenService / WeChatApiClient
+  ├── WeChatPublisher
+  └── PublishRecordService
+          ↓
+本地文件系统 / Cloudflare R2 / 微信公众号 API
+```
 
-## 安全边界
+主要技术：
 
-- Renderer 不直接使用 Node.js
-- 所有文件、图片和外部 API 通过 Preload 白名单 IPC
-- R2 Secret 和公众号 AppSecret 只在 Electron Main Process 解密
-- 密钥不会进入 Markdown、Manifest、导出文件或日志
-- 图片处理、草稿同步或外部 API 失败不得影响本地文章保存
-- 浏览器模式不能使用真实密钥
+- React 18、TypeScript、Vite 5、Tailwind CSS 3
+- markdown-it、Turndown、highlight.js、Framer Motion
+- Electron、electron-builder、Sharp
+- AWS SDK for JavaScript v3、Cloudflare R2
+- Vitest、Playwright
 
-## 项目定位
+## 文档导航
 
-DraftDock 不是自动生成整篇文章的 AI 套壳。确定性程序负责文件、图片、排版和发布，AI 只负责标题、摘要和结构检查等语言理解任务，用户始终保留最终修改和发布决定权。
+- [产品需求](docs/PRD.md)
+- [本地文章工作区测试](docs/TESTING.md)
+- [R2 图片资产管线设计](docs/PHASE2-R2-ASSET-PIPELINE.md)
+- [R2 图片资产管线测试](docs/TESTING-R2.md)
+- [微信公众号草稿同步设计](docs/PHASE3-WECHAT-DRAFT-SYNC.md)
+- [微信公众号草稿同步测试](docs/TESTING-WECHAT.md)
+- [第三方开源声明](THIRD_PARTY_NOTICES.md)
+
+## 当前边界
+
+DraftDock 当前不会：
+
+- 自动群发或定时发布
+- 自动登录或操作公众号后台
+- 批量发布到多个公众号
+- 删除或更新远程草稿
+- 把文章和密钥同步到 DraftDock 云端
+- 自动生成整篇文章
+
+“从正文生成摘要”是本地确定性文本提取，不会调用外部 AI 服务。后续 AI 发布检查仍处于规划阶段。
+
+## 项目路线
+
+| 阶段 | 状态 | 主要能力 |
+|---|---|---|
+| 本地文章工作区 | 已完成 | Electron、本地 Markdown、自动保存、版本与桌面打包 |
+| R2 图片资产管线 | 已完成 | 图片处理、R2、去重、Manifest 和失败恢复 |
+| 公众号草稿同步 | 已完成 | 安全配置、素材上传、草稿创建、进度与历史记录 |
+| AI 发布助手 | 规划中 | 标题、摘要、结构和移动端阅读检查 |
+| 产品化交付 | 进行中 | Release、自动更新、用户手册和稳定性收尾 |
 
 ## 开源来源
 
 DraftDock 基于 [Raphael Publish](https://github.com/liuxiaopai-ai/raphael-publish) 二次开发，复用并改造其 Markdown 渲染、富文本转换、主题系统、微信兼容转换、多端预览、富文本复制和 HTML/PDF 导出能力。
 
-详细归属信息见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)。
+详细归属信息见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 ## License
 
-本项目遵循 [MIT License](LICENSE)。使用、修改和分发本项目时，请保留原项目及本项目中的版权和许可证声明。
+本项目使用 [MIT License](LICENSE)。使用、修改和分发时，请保留原项目及 DraftDock 的版权和许可证声明。

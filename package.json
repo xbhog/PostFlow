@@ -7,7 +7,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/xbhog/draftdock.git"
+    "url": "https://github.com/xbhog/PostFlow.git"
   },
   "type": "module",
   "main": "electron/main.cjs",

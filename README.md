@@ -153,7 +153,7 @@ DraftDockWorkspace/
 ### 安装
 
 ```bash
-git clone https://github.com/xbhog/draftdock.git
+git clone https://github.com/xbhog/PostFlow.git
 cd draftdock
 pnpm install
 ```

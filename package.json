@@ -15,7 +15,7 @@
     "dev:desktop": "concurrently -k \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && electron .\"",
     "start:desktop": "electron .",
     "build": "tsc -b && vite build",
-    "build:desktop": "pnpm build && electron-builder",
+    "build:desktop": "pnpm build && electron-builder --publish never",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "concurrently -k -s command-1 \"vite --host 127.0.0.1 --port 4173 --strictPort\" \"wait-on http://127.0.0.1:4173 && playwright test\"",

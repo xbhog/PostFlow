@@ -1,0 +1,105 @@
+name: 构建并发布桌面版
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "发布标签，例如 v0.4.0（必须与 package.json 版本一致）"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release-windows:
+    name: 测试、构建并发布 Windows 安装包
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v7
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 校验发布版本
+        run: pnpm release:check -- $env:RELEASE_TAG
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 代码规范检查
+        run: pnpm lint
+
+      - name: 运行单元测试
+        run: pnpm test
+
+      - name: 安装 Playwright Chromium
+        run: pnpm exec playwright install chromium
+
+      - name: 运行端到端测试
+        run: pnpm test:e2e
+
+      - name: 构建 Windows 桌面版
+        run: pnpm build:desktop
+
+      - name: 生成 SHA-256 校验文件
+        run: |
+          $assets = @(Get-ChildItem -LiteralPath release -Filter "*.exe" -File)
+          if ($assets.Count -lt 2) {
+            throw "桌面构建产物不完整：期望至少包含安装版和便携版，实际找到 $($assets.Count) 个 EXE。"
+          }
+
+          $checksums = $assets | Sort-Object Name | ForEach-Object {
+            $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $($_.Name)"
+          }
+          $checksums | Set-Content -LiteralPath release/SHA256SUMS.txt -Encoding ascii
+          Get-Content -LiteralPath release/SHA256SUMS.txt
+
+      - name: 创建或更新 GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $releaseExists = $null -ne (gh release view $env:RELEASE_TAG 2>$null)
+          if (-not $releaseExists) {
+            $createArgs = @(
+              "release", "create", $env:RELEASE_TAG,
+              "--title", "DraftDock $env:RELEASE_TAG",
+              "--generate-notes",
+              "--target", $env:GITHUB_SHA
+            )
+            if ($env:RELEASE_TAG.Contains("-")) {
+              $createArgs += "--prerelease"
+            }
+            gh @createArgs
+          }
+
+          $assets = @(
+            Get-ChildItem -LiteralPath release -Filter "*.exe" -File | ForEach-Object FullName
+          )
+          $assets += (Resolve-Path -LiteralPath release/SHA256SUMS.txt).Path
+          gh release upload $env:RELEASE_TAG @assets --clobber
+
+          gh release view $env:RELEASE_TAG --json url,tagName,isDraft,isPrerelease

@@ -2,6 +2,7 @@
   "name": "draftdock",
   "private": false,
   "version": "0.4.0",
+  "packageManager": "pnpm@10.30.3",
   "description": "A local-first AI writing and publishing workspace for WeChat Official Accounts.",
   "license": "MIT",
   "repository": {
@@ -16,6 +17,7 @@
     "start:desktop": "electron .",
     "build": "tsc -b && vite build",
     "build:desktop": "pnpm build && electron-builder",
+    "release:check": "node scripts/check-release-version.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "concurrently -k -s command-1 \"vite --host 127.0.0.1 --port 4173 --strictPort\" \"wait-on http://127.0.0.1:4173 && playwright test\"",

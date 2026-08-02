@@ -191,6 +191,23 @@ pnpm build:desktop
 
 桌面安装包输出到 `release/`。
 
+### 自动发布 GitHub Release
+
+仓库通过 [GitHub Actions Release 工作流](.github/workflows/release.yml) 自动构建 Windows 安装版和便携版。发布前先更新 `package.json` 中的 `version`，提交并合并到 `main`，然后推送对应版本标签：
+
+```bash
+git tag -a v0.4.0 -m "发布 DraftDock v0.4.0"
+git push origin v0.4.0
+```
+
+标签必须采用 `vX.Y.Z` 格式，并与 `package.json` 版本一致。工作流会依次执行版本校验、依赖安装、Lint、单元测试、Playwright E2E 和 Electron 打包；全部通过后，GitHub Release 会包含：
+
+- DraftDock NSIS 安装程序
+- DraftDock Portable 便携版
+- `SHA256SUMS.txt` 文件校验清单
+
+也可以在 GitHub 仓库的 **Actions → 构建并发布桌面版 → Run workflow** 中输入版本标签手动触发。预发布版本可使用 `vX.Y.Z-beta.1`，此时 `package.json` 也必须填写对应的预发布版本。
+
 ## 技术架构
 
 ```text

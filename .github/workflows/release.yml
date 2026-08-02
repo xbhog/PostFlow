@@ -2,20 +2,15 @@ name: 构建并发布桌面版
 
 on:
   push:
-    tags:
-      - "v*.*.*"
+    branches:
+      - main
   workflow_dispatch:
-    inputs:
-      tag:
-        description: "发布标签，例如 v0.4.0（必须与 package.json 版本一致）"
-        required: true
-        type: string
 
 permissions:
   contents: write
 
 concurrency:
-  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  group: release-${{ github.sha }}
   cancel-in-progress: false
 
 jobs:
@@ -23,9 +18,6 @@ jobs:
     name: 测试、构建并发布 Windows 安装包
     runs-on: windows-latest
     timeout-minutes: 45
-    env:
-      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
-
     defaults:
       run:
         shell: pwsh
@@ -36,15 +28,14 @@ jobs:
 
       - name: 安装 pnpm
         uses: pnpm/action-setup@v6
+        with:
+          version: 10.30.3
 
       - name: 安装 Node.js
         uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: pnpm
-
-      - name: 校验发布版本
-        run: pnpm release:check -- $env:RELEASE_TAG
 
       - name: 安装依赖
         run: pnpm install --frozen-lockfile
@@ -63,6 +54,14 @@ jobs:
 
       - name: 构建 Windows 桌面版
         run: pnpm build:desktop
+
+      - name: 生成 Release 元数据
+        run: |
+          $metadata = node scripts/create-release-metadata.mjs | ConvertFrom-Json
+          "RELEASE_TAG=$($metadata.tag)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "RELEASE_TITLE=$($metadata.title)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "RELEASE_SHORT_SHA=$($metadata.shortSha)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $metadata | ConvertTo-Json
 
       - name: 生成 SHA-256 校验文件
         run: |
@@ -86,13 +85,11 @@ jobs:
           if (-not $releaseExists) {
             $createArgs = @(
               "release", "create", $env:RELEASE_TAG,
-              "--title", "DraftDock $env:RELEASE_TAG",
+              "--title", $env:RELEASE_TITLE,
               "--generate-notes",
-              "--target", $env:GITHUB_SHA
+              "--target", $env:GITHUB_SHA,
+              "--latest"
             )
-            if ($env:RELEASE_TAG.Contains("-")) {
-              $createArgs += "--prerelease"
-            }
             gh @createArgs
           }
 

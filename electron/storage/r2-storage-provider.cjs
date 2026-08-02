@@ -112,10 +112,10 @@ class R2StorageProvider {
 
   async testConnection() {
     await this.headBucket();
-    const objectKey = `${this.config.objectPrefix}/.draftdock-test-${Date.now()}.txt`;
+    const objectKey = `${this.config.objectPrefix}/.postflow-test-${Date.now()}.txt`;
     const uploadResult = await this.upload({
       objectKey,
-      body: Buffer.from('DraftDock R2 connection test', 'utf8'),
+      body: Buffer.from('PostFlow R2 connection test', 'utf8'),
       contentType: 'text/plain; charset=utf-8'
     });
 

@@ -41,7 +41,7 @@ const EMPTY_STORAGE_CONFIG: PublicStorageConfig = {
     bucket: '',
     endpoint: '',
     publicBaseUrl: '',
-    objectPrefix: 'draftdock',
+    objectPrefix: 'postflow',
     optimizeImages: true,
     maxWidth: 2560,
     jpegQuality: 82,
@@ -528,7 +528,7 @@ export default function App() {
         const url = URL.createObjectURL(blob);
         const anchor = document.createElement('a');
         anchor.href = url;
-        anchor.download = `DraftDock_Article_${Date.now()}.html`;
+        anchor.download = `PostFlow_Article_${Date.now()}.html`;
         anchor.click();
         URL.revokeObjectURL(url);
     };
@@ -549,7 +549,7 @@ export default function App() {
         };
         html2pdf().set({
             margin: 10,
-            filename: `DraftDock_Article_${Date.now()}.pdf`,
+            filename: `PostFlow_Article_${Date.now()}.pdf`,
             image: { type: 'jpeg' as const, quality: 0.98 },
             html2canvas: { scale: 2, useCORS: true, letterRendering: true },
             jsPDF: { unit: 'mm' as const, format: 'a4', orientation: 'portrait' as const }

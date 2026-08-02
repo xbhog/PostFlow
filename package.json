@@ -1,9 +1,8 @@
 {
-  "name": "draftdock",
+  "name": "postflow",
   "private": false,
   "version": "0.4.0",
-  "packageManager": "pnpm@10.30.3",
-  "description": "A local-first AI writing and publishing workspace for WeChat Official Accounts.",
+  "description": "PostFlow is a local-first writing and publishing workspace for WeChat Official Accounts.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -17,7 +16,6 @@
     "start:desktop": "electron .",
     "build": "tsc -b && vite build",
     "build:desktop": "pnpm build && electron-builder",
-    "release:check": "node scripts/check-release-version.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "concurrently -k -s command-1 \"vite --host 127.0.0.1 --port 4173 --strictPort\" \"wait-on http://127.0.0.1:4173 && playwright test\"",
@@ -74,8 +72,8 @@
     ]
   },
   "build": {
-    "appId": "com.draftdock.app",
-    "productName": "DraftDock",
+    "appId": "com.postflow.app",
+    "productName": "PostFlow",
     "asar": true,
     "asarUnpack": [
       "node_modules/sharp/**/*",

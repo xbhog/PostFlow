@@ -13,6 +13,7 @@ const { WeChatApiClient } = require('./publishers/wechat-api-client.cjs');
 const { WeChatPublisher } = require('./publishers/wechat-publisher.cjs');
 const { sanitizePublicationHtml } = require('./publishers/publication-html.cjs');
 const { PublishRecordService } = require('./publish-record-service.cjs');
+const { migrateLegacyUserData } = require('./user-data-migration.cjs');
 
 let mainWindow = null;
 let articleService = null;
@@ -75,7 +76,7 @@ function createWindow() {
     minWidth: 1024,
     minHeight: 700,
     show: false,
-    title: 'DraftDock',
+    title: 'PostFlow',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -123,7 +124,7 @@ function registerIpcHandlers() {
 
   handle('workspace:select', async () => {
     const result = await dialog.showOpenDialog(mainWindow, {
-      title: '选择 DraftDock 工作目录',
+      title: '选择 PostFlow 工作目录',
       properties: ['openDirectory', 'createDirectory']
     });
 
@@ -223,6 +224,10 @@ function registerIpcHandlers() {
 }
 
 app.whenReady().then(async () => {
+  const migratedFiles = await migrateLegacyUserData(app);
+  if (migratedFiles.length > 0) {
+    console.info(`Migrated ${migratedFiles.length} legacy PostFlow configuration file(s).`);
+  }
   articleService = new ArticleService(app);
   credentialService = new CredentialService(app);
   wechatAccountService = new WeChatAccountService(app);
@@ -257,7 +262,7 @@ app.whenReady().then(async () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 }).catch((error) => {
-  console.error('DraftDock failed to start:', error);
+  console.error('PostFlow failed to start:', error);
   app.quit();
 });
 

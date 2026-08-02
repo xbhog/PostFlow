@@ -38,7 +38,8 @@ class ArticleService {
   }
 
   async readConfiguredWorkspace() {
-    const defaultWorkspace = path.join(this.app.getPath('documents'), 'DraftDockWorkspace');
+    const defaultWorkspace = path.join(this.app.getPath('documents'), 'PostFlowWorkspace');
+    const legacyWorkspace = path.join(this.app.getPath('documents'), 'DraftDockWorkspace');
 
     try {
       const raw = await fs.readFile(this.settingsPath, 'utf8');
@@ -52,6 +53,8 @@ class ArticleService {
       }
     }
 
+    if (await pathExists(defaultWorkspace)) return defaultWorkspace;
+    if (await pathExists(legacyWorkspace)) return legacyWorkspace;
     return defaultWorkspace;
   }
 

@@ -1,4 +1,4 @@
-# DraftDock 本地文章 MVP 测试清单
+# PostFlow 本地文章 MVP 测试清单
 
 测试分支：
 
@@ -44,7 +44,7 @@ pnpm dev
 8. 切换排版主题，等待自动保存，再次打开后主题正确恢复。
 9. 删除文章，刷新后文章不再出现。
 
-浏览器模式使用 localStorage，不应该在磁盘中创建 `DraftDockWorkspace`。
+浏览器模式使用 localStorage，不应该在磁盘中创建 `PostFlowWorkspace`。
 
 ## 3. Electron 桌面开发模式
 
@@ -57,7 +57,7 @@ pnpm dev:desktop
 默认工作目录：
 
 ```text
-Documents/DraftDockWorkspace/
+Documents/PostFlowWorkspace/
 ```
 
 验证：
@@ -76,7 +76,7 @@ articles/<article-id>/metadata.json
 articles/<article-id>/assets/
 ```
 
-8. 用文本编辑器打开 `article.md`，内容与 DraftDock 中一致。
+8. 用文本编辑器打开 `article.md`，内容与 PostFlow 中一致。
 9. `metadata.json` 包含标题、主题、版本、创建时间和更新时间。
 10. 无修改时等待一段时间，版本号不应持续增加。
 11. 修改内容后，版本号增加一次。
@@ -157,8 +157,8 @@ exports/
 3. 点击预览元素能定位 Markdown。
 4. 主题切换正常。
 5. “复制到公众号”仍能写入富文本剪贴板。
-6. HTML 导出文件名以 `DraftDock_Article_` 开头。
-7. PDF 导出文件名以 `DraftDock_Article_` 开头。
+6. HTML 导出文件名以 `PostFlow_Article_` 开头。
+7. PDF 导出文件名以 `PostFlow_Article_` 开头。
 
 ## 7. Windows 桌面构建
 

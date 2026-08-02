@@ -95,15 +95,15 @@ test('creates, saves and reopens a browser article', async ({ page }) => {
 
     const titleInput = page.getByLabel('文章标题');
     const editor = page.getByTestId('editor-input');
-    await titleInput.fill('DraftDock 本地文章测试');
+    await titleInput.fill('PostFlow 本地文章测试');
     await editor.fill('# 本地文章\n\n这段内容应该自动保存。');
     await waitForArticleSaved(page);
 
     await page.getByRole('button', { name: /文章列表/ }).click();
-    await expect(page.getByText('DraftDock 本地文章测试')).toBeVisible();
+    await expect(page.getByText('PostFlow 本地文章测试')).toBeVisible();
 
-    await page.getByText('DraftDock 本地文章测试').click();
-    await expect(titleInput).toHaveValue('DraftDock 本地文章测试');
+    await page.getByText('PostFlow 本地文章测试').click();
+    await expect(titleInput).toHaveValue('PostFlow 本地文章测试');
     await expect(editor).toHaveValue('# 本地文章\n\n这段内容应该自动保存。');
 });
 

@@ -1,8 +1,8 @@
-# DraftDock
+# PostFlow
 
 本地优先的微信公众号写作、排版与草稿同步工作台。
 
-DraftDock 把 Markdown 写作、图片自托管、公众号排版和草稿同步放进一个桌面应用。文章和发布记录保存在自己的电脑，图片上传到自己的 Cloudflare R2，公众号密钥只由 Electron 主进程处理。
+PostFlow 把 Markdown 写作、图片自托管、公众号排版和草稿同步放进一个桌面应用。文章和发布记录保存在自己的电脑，图片上传到自己的 Cloudflare R2，公众号密钥只由 Electron 主进程处理。
 
 ```text
 写作与整理
@@ -13,15 +13,15 @@ DraftDock 把 Markdown 写作、图片自托管、公众号排版和草稿同步
 → 在公众号后台做最终预览和发布
 ```
 
-> DraftDock 只创建草稿，不会自动群发，也不会绕过用户确认。
+> PostFlow 只创建草稿，不会自动群发，也不会绕过用户确认。
 
-![DraftDock 界面预览](media/screenshot.png)
+![PostFlow 界面预览](media/screenshot.png)
 
-## 为什么做 DraftDock
+## 为什么做 PostFlow
 
 公众号作者经常在飞书、Notion、Word、AI 对话和 Markdown 编辑器之间来回搬运内容。正文可以复制，图片、排版、封面和发布记录却仍要重复处理。
 
-DraftDock 解决的是这条最后一公里：
+PostFlow 解决的是这条最后一公里：
 
 - 原稿始终留在本地，可直接读取和备份。
 - 图片进入自己的对象存储，不依赖第三方图床。
@@ -45,7 +45,7 @@ DraftDock 解决的是这条最后一公里：
 ### 本地文章工作区
 
 - Electron 桌面应用
-- 默认工作目录 `Documents/DraftDockWorkspace`
+- 默认工作目录 `Documents/PostFlowWorkspace`
 - 自定义工作目录
 - 新建、打开、删除和自动保存文章
 - 800ms 防抖保存与文章版本记录
@@ -108,7 +108,7 @@ DraftDock 解决的是这条最后一公里：
 ## 数据目录
 
 ```text
-DraftDockWorkspace/
+PostFlowWorkspace/
 ├── articles/
 │   └── <article-id>/
 │       ├── article.md
@@ -128,7 +128,7 @@ DraftDockWorkspace/
 └── exports/
 ```
 
-这些文件都是普通文本和图片，可以独立备份，不依赖 DraftDock 官方云端服务。
+这些文件都是普通文本和图片，可以独立备份，不依赖 PostFlow 官方云端服务。
 
 ## 安全边界
 
@@ -154,7 +154,7 @@ DraftDockWorkspace/
 
 ```bash
 git clone https://github.com/xbhog/PostFlow.git
-cd draftdock
+cd PostFlow
 pnpm install
 ```
 
@@ -193,20 +193,19 @@ pnpm build:desktop
 
 ### 自动发布 GitHub Release
 
-仓库通过 [GitHub Actions Release 工作流](.github/workflows/release.yml) 自动构建 Windows 安装版和便携版。发布前先更新 `package.json` 中的 `version`，提交并合并到 `main`，然后推送对应版本标签：
+仓库通过 [GitHub Actions Release 工作流](.github/workflows/release.yml) 自动构建 Windows 安装版和便携版。任何提交进入 `main` 后都会自动执行完整检查、打包并创建一个唯一的 GitHub Release，不需要手工创建标签：
 
 ```bash
-git tag -a v0.4.0 -m "发布 DraftDock v0.4.0"
-git push origin v0.4.0
+git push origin main
 ```
 
-标签必须采用 `vX.Y.Z` 格式，并与 `package.json` 版本一致。工作流会依次执行版本校验、依赖安装、Lint、单元测试、Playwright E2E 和 Electron 打包；全部通过后，GitHub Release 会包含：
+工作流会根据 `package.json` 版本和 GitHub Actions 运行编号生成 `vX.Y.Z-build.N` 标签，然后依次执行依赖安装、Lint、单元测试、Playwright E2E 和 Electron 打包。全部通过后，GitHub Release 会包含：
 
-- DraftDock NSIS 安装程序
-- DraftDock Portable 便携版
+- PostFlow NSIS 安装程序
+- PostFlow Portable 便携版
 - `SHA256SUMS.txt` 文件校验清单
 
-也可以在 GitHub 仓库的 **Actions → 构建并发布桌面版 → Run workflow** 中输入版本标签手动触发。预发布版本可使用 `vX.Y.Z-beta.1`，此时 `package.json` 也必须填写对应的预发布版本。
+也可以在 GitHub 仓库的 **Actions → 构建并发布桌面版 → Run workflow** 中手动触发。每次运行都会使用唯一构建编号，不会覆盖之前的 Release。
 
 ## 技术架构
 
@@ -249,13 +248,13 @@ Electron Main
 
 ## 当前边界
 
-DraftDock 当前不会：
+PostFlow 当前不会：
 
 - 自动群发或定时发布
 - 自动登录或操作公众号后台
 - 批量发布到多个公众号
 - 删除或更新远程草稿
-- 把文章和密钥同步到 DraftDock 云端
+- 把文章和密钥同步到 PostFlow 云端
 - 自动生成整篇文章
 
 “从正文生成摘要”是本地确定性文本提取，不会调用外部 AI 服务。后续 AI 发布检查仍处于规划阶段。
@@ -272,10 +271,12 @@ DraftDock 当前不会：
 
 ## 开源来源
 
-DraftDock 基于 [Raphael Publish](https://github.com/liuxiaopai-ai/raphael-publish) 二次开发，复用并改造其 Markdown 渲染、富文本转换、主题系统、微信兼容转换、多端预览、富文本复制和 HTML/PDF 导出能力。
+PostFlow 基于 [Raphael Publish](https://github.com/liuxiaopai-ai/raphael-publish) 二次开发，复用并改造其 Markdown 渲染、富文本转换、主题系统、微信兼容转换、多端预览、富文本复制和 HTML/PDF 导出能力。
 
 详细归属信息见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 ## License
 
-本项目使用 [MIT License](LICENSE)。使用、修改和分发时，请保留原项目及 DraftDock 的版权和许可证声明。
+本项目使用 [MIT License](LICENSE)。使用、修改和分发时，请保留原项目及 PostFlow 的版权和许可证声明。
+
+> 兼容性说明：为保护已有文章和本地配置，部分内部协议、存储键和旧工作区名称仍保留 `draftdock` 标识。新安装默认使用 `PostFlowWorkspace`；升级时会迁移旧版配置，如果检测到已有 `DraftDockWorkspace`，应用会自动继续使用原目录。

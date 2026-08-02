@@ -1,4 +1,4 @@
-# DraftDock 产品需求文档
+# PostFlow 产品需求文档
 
 **版本：** V1.1  
 **产品定位：** 本地优先的公众号写作、排版与发布工作台  
@@ -6,7 +6,7 @@
 
 ## 1. 产品目标
 
-DraftDock 将公众号内容生产中分散的步骤整合为一条完整工作流：
+PostFlow 将公众号内容生产中分散的步骤整合为一条完整工作流：
 
 ```text
 本地创建文章
@@ -19,7 +19,7 @@ DraftDock 将公众号内容生产中分散的步骤整合为一条完整工作�
 → AI 提供标题、摘要与发布检查
 ```
 
-产品采用本地优先架构：文章、图片资产索引、配置和发布记录默认保存在用户设备中，不依赖 DraftDock 官方云端服务即可运行。
+产品采用本地优先架构：文章、图片资产索引、配置和发布记录默认保存在用户设备中，不依赖 PostFlow 官方云端服务即可运行。
 
 ## 2. 目标用户
 
@@ -30,7 +30,7 @@ DraftDock 将公众号内容生产中分散的步骤整合为一条完整工作�
 
 ## 3. 当前开源基础
 
-DraftDock 基于 Raphael Publish 二次开发，并已经具备：
+PostFlow 基于 Raphael Publish 二次开发，并已经具备：
 
 - Markdown 实时编辑与预览
 - 飞书、Notion、Word 和网页富文本转 Markdown
@@ -50,7 +50,7 @@ DraftDock 基于 Raphael Publish 二次开发，并已经具备：
 | 第二阶段：图片自托管 | 已完成 | R2、Sharp、Hash 去重、Manifest、失败恢复 |
 | 第三阶段：公众号草稿同步 | 已完成 | 公众号配置、发布参数、图片转换、草稿创建、进度与同步记录 |
 | 第四阶段：AI 辅助发布 | 规划中 | 标题、摘要、结构和移动端阅读检查 |
-| 第五阶段：产品化交付 | 规划中 | Release、自动更新、安装体验、演示与稳定性 |
+| 第五阶段：产品化交付 | 进行中 | main 自动 Release、自动更新、安装体验、演示与稳定性 |
 
 ### 4.1 第一阶段：本地文章管理（已完成）
 
@@ -67,7 +67,7 @@ DraftDock 基于 Raphael Publish 二次开发，并已经具备：
 本地文章目录结构：
 
 ```text
-DraftDockWorkspace/
+PostFlowWorkspace/
 ├── articles/
 │   └── article-id/
 │       ├── article.md
@@ -116,13 +116,14 @@ DraftDockWorkspace/
 - 结构化 JSON 输出
 - 所有修改由用户确认后应用
 
-### 4.5 第五阶段：产品化交付（规划中）
+### 4.5 第五阶段：产品化交付（进行中）
 
-- Windows Release 与安装说明
+- main 分支提交后自动构建 Windows Release
+- Windows 安装说明
 - 自动更新或清晰的手动升级流程
 - 崩溃恢复和诊断日志
 - 最新界面截图、演示 GIF 和演示文章
-- GitHub Release Notes
+- 自动生成 GitHub Release Notes 与 SHA-256 校验文件
 - 完整用户手册与已知限制
 
 ## 5. 非目标
@@ -242,4 +243,4 @@ Electron Main Process
 
 ## 10. 一句话介绍
 
-DraftDock 是一款本地优先的公众号写作与发布工作台，用户可以在本地使用 Markdown 完成创作，将图片上传到自己的对象存储，并将排版后的文章复制或同步至微信公众号草稿箱。
+PostFlow 是一款本地优先的公众号写作与发布工作台，用户可以在本地使用 Markdown 完成创作，将图片上传到自己的对象存储，并将排版后的文章复制或同步至微信公众号草稿箱。

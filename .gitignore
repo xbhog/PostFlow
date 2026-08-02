@@ -4,6 +4,7 @@ node_modules/
 dist/
 release/
 DraftDockWorkspace/
+PostFlowWorkspace/
 playwright-report/
 test-results/
 *.tsbuildinfo

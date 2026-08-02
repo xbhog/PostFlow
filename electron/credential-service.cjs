@@ -14,10 +14,10 @@ function normalizeUrl(value) {
 }
 
 function normalizePrefix(value) {
-  return String(value || 'draftdock')
+  return String(value || 'postflow')
     .trim()
     .replace(/^\/+|\/+$/g, '')
-    .replace(/\/{2,}/g, '/') || 'draftdock';
+    .replace(/\/{2,}/g, '/') || 'postflow';
 }
 
 function maskCredential(value) {
@@ -80,7 +80,7 @@ class CredentialService {
       bucket: String(input.bucket ?? existing?.bucket ?? '').trim(),
       endpoint,
       publicBaseUrl: normalizeUrl(input.publicBaseUrl ?? existing?.publicBaseUrl ?? ''),
-      objectPrefix: normalizePrefix(input.objectPrefix ?? existing?.objectPrefix ?? 'draftdock'),
+      objectPrefix: normalizePrefix(input.objectPrefix ?? existing?.objectPrefix ?? 'postflow'),
       optimizeImages: input.optimizeImages ?? existing?.optimizeImages ?? DEFAULT_IMAGE_OPTIONS.optimizeImages,
       maxWidth: Number(input.maxWidth ?? existing?.maxWidth ?? DEFAULT_IMAGE_OPTIONS.maxWidth),
       jpegQuality: Number(input.jpegQuality ?? existing?.jpegQuality ?? DEFAULT_IMAGE_OPTIONS.jpegQuality),
@@ -135,7 +135,7 @@ class CredentialService {
         bucket: '',
         endpoint: '',
         publicBaseUrl: '',
-        objectPrefix: 'draftdock',
+        objectPrefix: 'postflow',
         optimizeImages: true,
         maxWidth: DEFAULT_IMAGE_OPTIONS.maxWidth,
         jpegQuality: DEFAULT_IMAGE_OPTIONS.jpegQuality,

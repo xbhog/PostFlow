@@ -10,24 +10,24 @@ test('saves and reopens a browser mock WeChat account without storing the secret
   await createArticle(page);
   await page.getByTestId('wechat-settings-button').click();
 
-  await page.getByLabel('公众号名称').fill('DraftDock 测试公众号');
+  await page.getByLabel('公众号名称').fill('PostFlow 测试公众号');
   await page.getByLabel('AppID').fill('wxmock1234567890');
   await page.getByLabel('AppSecret').fill('mock-secret-value');
-  await page.getByLabel('默认作者').fill('DraftDock');
+  await page.getByLabel('默认作者').fill('PostFlow');
 
   await page.getByRole('button', { name: '测试连接' }).click();
   await expect(page.getByText(/Mock 凭证有效/)).toBeVisible();
 
   await page.getByRole('button', { name: '保存配置' }).click();
   await expect(page.getByText('公众号配置已保存。')).toBeVisible();
-  await expect(page.getByText('DraftDock 测试公众号').first()).toBeVisible();
+  await expect(page.getByText('PostFlow 测试公众号').first()).toBeVisible();
 
   const stored = await page.evaluate(() => window.localStorage.getItem('draftdock:browser-wechat-accounts:v1'));
   expect(stored).not.toContain('mock-secret-value');
 
   await page.getByRole('button', { name: '关闭公众号设置' }).click();
   await page.getByTestId('wechat-settings-button').click();
-  await page.getByText('DraftDock 测试公众号').first().click();
+  await page.getByText('PostFlow 测试公众号').first().click();
   await expect(page.getByLabel('AppSecret')).toHaveValue('');
   await expect(page.getByLabel('AppSecret')).toHaveAttribute('placeholder', /已保存/);
 });

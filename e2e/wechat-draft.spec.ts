@@ -25,16 +25,16 @@ async function addImage(
     mimeType: 'image/png',
     buffer
   });
-  await expect(page.getByTestId('editor-input')).toHaveValue(/https:\/\/mock-assets\.draftdock\.local\//, { timeout: 7000 });
+  await expect(page.getByTestId('editor-input')).toHaveValue(/https:\/\/mock-assets\.postflow\.local\//, { timeout: 7000 });
   await waitForSaved(page);
 }
 
 async function addMockAccount(page: import('@playwright/test').Page) {
   await page.getByTestId('wechat-settings-button').click();
-  await page.getByLabel('公众号名称').fill('DraftDock Mock 公众号');
+  await page.getByLabel('公众号名称').fill('PostFlow Mock 公众号');
   await page.getByLabel('AppID').fill('wxmock1234567890');
   await page.getByLabel('AppSecret').fill('mock-secret');
-  await page.getByLabel('默认作者').fill('DraftDock');
+  await page.getByLabel('默认作者').fill('PostFlow');
   await page.getByRole('button', { name: '保存配置' }).click();
   await expect(page.getByText('公众号配置已保存。')).toBeVisible();
   await page.getByRole('button', { name: '关闭公众号设置' }).click();
@@ -66,17 +66,17 @@ test('creates a browser mock draft and marks it outdated after local edits', asy
   await page.getByTestId('confirm-publish-draft').click();
   const confirmation = page.getByTestId('publish-confirmation');
   await expect(confirmation).toBeVisible();
-  await expect(confirmation).toContainText('DraftDock Mock 公众号');
+  await expect(confirmation).toContainText('PostFlow Mock 公众号');
   await expect(confirmation).toContainText('正文图片');
   await page.getByTestId('approve-publish-draft').click();
   await expect(page.getByTestId('publish-progress')).toBeVisible();
   await expect(page.getByRole('progressbar', { name: '草稿同步进度' })).toBeVisible();
   await expect(modal.getByText('已同步到草稿箱')).toBeVisible({ timeout: 7000 });
-  await expect(page.getByTestId('app-notice')).toContainText('已同步到“DraftDock Mock 公众号”草稿箱');
+  await expect(page.getByTestId('app-notice')).toContainText('已同步到“PostFlow Mock 公众号”草稿箱');
   await expect(modal.getByText(/mock-draft-/)).toBeVisible();
 
   await page.getByRole('button', { name: '关闭发布面板' }).click();
-  await page.getByTestId('editor-input').fill('# 更新后的正文\n\n正文已经修改。\n\n![封面](https://mock-assets.draftdock.local/draftdock/cover.png)');
+  await page.getByTestId('editor-input').fill('# 更新后的正文\n\n正文已经修改。\n\n![封面](https://mock-assets.postflow.local/postflow/cover.png)');
   await waitForSaved(page);
 
   await page.getByTestId('publish-draft-button').click();
@@ -97,7 +97,7 @@ test('shows a browser mock draft failure without losing the article', async ({ p
 
   await expect(page.getByTestId('publish-error')).toHaveText('浏览器测试模式模拟草稿创建失败。', { timeout: 7000 });
   await page.getByRole('button', { name: '关闭发布面板' }).click();
-  await expect(page.getByTestId('editor-input')).toHaveValue(/https:\/\/mock-assets\.draftdock\.local\//);
+  await expect(page.getByTestId('editor-input')).toHaveValue(/https:\/\/mock-assets\.postflow\.local\//);
 });
 
 test('dialogs render in the viewport, close with Escape, and unknown results can be resolved', async ({ page }) => {

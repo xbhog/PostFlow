@@ -48,7 +48,7 @@ export default function EditorPanel({
         if (files.length === 0) return;
         event.preventDefault();
         const images = files.filter((file) => file.type.startsWith('image/'));
-        if (images.length !== files.length) alert('DraftDock 当前只支持拖入图片文件。');
+        if (images.length !== files.length) alert('PostFlow 当前只支持拖入图片文件。');
         if (images.length > 0) void onImageFiles(images, event.currentTarget, 'drop');
     };
 

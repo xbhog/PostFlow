@@ -1,12 +1,12 @@
 {
-  "name": "draftdock",
+  "name": "postflow",
   "private": false,
   "version": "0.4.0",
-  "description": "A local-first AI writing and publishing workspace for WeChat Official Accounts.",
+  "description": "PostFlow is a local-first writing and publishing workspace for WeChat Official Accounts.",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/xbhog/draftdock.git"
+    "url": "https://github.com/xbhog/PostFlow.git"
   },
   "type": "module",
   "main": "electron/main.cjs",
@@ -72,8 +72,8 @@
     ]
   },
   "build": {
-    "appId": "com.draftdock.app",
-    "productName": "DraftDock",
+    "appId": "com.postflow.app",
+    "productName": "PostFlow",
     "asar": true,
     "asarUnpack": [
       "node_modules/sharp/**/*",

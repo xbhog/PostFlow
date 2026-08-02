@@ -1,4 +1,4 @@
-# DraftDock R2 图片管线测试清单
+# PostFlow R2 图片管线测试清单
 
 测试分支：
 
@@ -40,7 +40,7 @@ pnpm dev
 2. 点击“插入图片”，选择 PNG。
 3. Markdown 先出现 `draftdock-upload://<asset-id>`。
 4. 图片队列依次显示等待、处理、上传和成功。
-5. Markdown 最终替换为 `https://mock-assets.draftdock.local/...`。
+5. Markdown 最终替换为 `https://mock-assets.postflow.local/...`。
 6. 返回列表并重新打开文章，URL 保持不变。
 7. 再次选择相同图片，队列显示“已复用”。
 8. 选择文件名包含 `mock-fail` 的图片，确认模拟失败。
@@ -74,7 +74,7 @@ pnpm dev:desktop
 5. 测试对象被删除。
 6. 保存配置后关闭弹窗。
 7. 再次打开时 Secret 不回显，只显示已保存状态。
-8. `DraftDockWorkspace` 内不存在 Access Key 或 Secret。
+8. `PostFlowWorkspace` 内不存在 Access Key 或 Secret。
 9. 控制台和日志中不存在完整密钥。
 
 错误场景：

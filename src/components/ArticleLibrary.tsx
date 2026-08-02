@@ -113,7 +113,7 @@ export default function ArticleLibrary({
             <FileText className="mx-auto mb-4 text-[#86868b]" size={40} />
             <h2 className="text-lg font-semibold text-black dark:text-white">还没有本地文章</h2>
             <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#6e6e73] dark:text-[#a1a1a6]">
-              新建文章后，DraftDock 会自动保存 Markdown 正文与文章元数据。桌面模式下文件会写入上方工作目录。
+              新建文章后，PostFlow 会自动保存 Markdown 正文与文章元数据。桌面模式下文件会写入上方工作目录。
             </p>
             <button
               type="button"

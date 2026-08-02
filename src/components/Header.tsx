@@ -17,7 +17,7 @@ export default function Header({ themeMode, onToggleTheme }: HeaderProps) {
                     </svg>
                 </div>
                 <span className="font-bold text-lg tracking-tight text-black dark:text-white">
-                    DraftDock<span className="hidden sm:inline"> - 本地 AI 公众号发布工作台</span>
+                    PostFlow<span className="hidden sm:inline"> - 本地 AI 公众号发布工作台</span>
                 </span>
             </div>
 
@@ -25,10 +25,10 @@ export default function Header({ themeMode, onToggleTheme }: HeaderProps) {
                 <motion.a
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    href="https://github.com/xbhog/draftdock"
+                    href="https://github.com/xbhog/PostFlow"
                     target="_blank"
                     rel="noopener noreferrer"
-                    aria-label="打开 DraftDock GitHub 仓库"
+                    aria-label="打开 PostFlow GitHub 仓库"
                     className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
                 >
                     <Github size={20} />

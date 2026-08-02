@@ -55,6 +55,9 @@ jobs:
       - name: 构建 Windows 桌面版
         run: pnpm build:desktop
 
+      - name: 验证打包后的桌面程序可启动
+        run: pnpm test:desktop-package
+
       - name: 生成 Release 元数据
         run: |
           $metadata = node scripts/create-release-metadata.mjs | ConvertFrom-Json

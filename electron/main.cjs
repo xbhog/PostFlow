@@ -15,6 +15,8 @@ const { sanitizePublicationHtml } = require('./publishers/publication-html.cjs')
 const { PublishRecordService } = require('./publish-record-service.cjs');
 const { migrateLegacyUserData } = require('./user-data-migration.cjs');
 
+const isSmokeTest = process.argv.includes('--smoke-test');
+
 let mainWindow = null;
 let articleService = null;
 let credentialService = null;
@@ -86,8 +88,27 @@ function createWindow() {
   });
 
   mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
+    if (!isSmokeTest) mainWindow.show();
   });
+
+  if (isSmokeTest) {
+    const smokeTimeout = setTimeout(() => {
+      console.error('PostFlow packaged smoke test timed out.');
+      app.exit(1);
+    }, 15_000);
+
+    mainWindow.webContents.once('did-finish-load', () => {
+      clearTimeout(smokeTimeout);
+      console.info('PostFlow packaged smoke test passed.');
+      app.exit(0);
+    });
+
+    mainWindow.webContents.once('did-fail-load', (_event, errorCode, errorDescription) => {
+      clearTimeout(smokeTimeout);
+      console.error(`PostFlow packaged smoke test failed: ${errorCode} ${errorDescription}`);
+      app.exit(1);
+    });
+  }
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     openExternalUrl(url);

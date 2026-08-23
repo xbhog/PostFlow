@@ -2,6 +2,9 @@
  * Find and select the image markdown syntax in the editor
  */
 
+import type { EditorHandle } from './editorHandle';
+import { selectEditorRange } from './editorHandle';
+
 export interface ImageMatch {
   start: number;
   end: number;
@@ -204,65 +207,10 @@ function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-/**
- * Select text in a textarea element
- * @param textarea - The textarea element
- * @param start - Start position
- * @param end - End position (if same as start, just moves cursor)
- */
-export function selectTextAreaRange(
-  textarea: HTMLTextAreaElement,
-  start: number,
-  end: number
-): void {
-  textarea.focus();
-  textarea.setSelectionRange(start, end);
-
-  // Use the improved scroll logic
-  scrollToPosition(textarea, start);
+export function selectTextAreaRange(editor: EditorHandle, start: number, end: number): void {
+  selectEditorRange(editor, start, end);
 }
 
-/**
- * Move cursor to a position and scroll into view
- * Better for navigation than selecting a range
- */
-export function moveCursorToPosition(
-  textarea: HTMLTextAreaElement,
-  position: number
-): void {
-  // Save current scroll position before moving cursor
-  const savedScrollTop = textarea.scrollTop;
-
-  textarea.focus();
-  textarea.setSelectionRange(position, position);
-
-  // Restore scroll position immediately to prevent browser's auto-scroll
-  textarea.scrollTop = savedScrollTop;
-}
-
-/**
- * Scroll textarea to show a specific position at the top 1/3 of viewport
- * @param textarea - The textarea element
- * @param position - The character position to scroll to
- */
-function scrollToPosition(textarea: HTMLTextAreaElement, position: number): void {
-  const textBefore = textarea.value.substring(0, position);
-  const lines = textBefore.split('\n');
-  const currentLine = lines.length - 1;
-
-  const lineHeight = parseFloat(getComputedStyle(textarea).lineHeight) || 20;
-  const paddingTop = parseFloat(getComputedStyle(textarea).paddingTop) || 0;
-  const containerHeight = textarea.clientHeight;
-
-  // Calculate the target line's scroll position
-  const targetPosition = currentLine * lineHeight - paddingTop + containerHeight / 3;
-
-  // Only scroll if the target is outside the current visible area
-  const currentScroll = textarea.scrollTop;
-
-  if (targetPosition < currentScroll || targetPosition > currentScroll + containerHeight - lineHeight * 3) {
-    // Target is outside visible area, scroll to show it at top 1/3
-    textarea.scrollTop = Math.max(0, Math.min(targetPosition, textarea.scrollHeight - containerHeight));
-  }
-  // Otherwise, keep current scroll position (content is already visible)
+export function moveCursorToPosition(editor: EditorHandle, position: number): void {
+  selectEditorRange(editor, position, position);
 }

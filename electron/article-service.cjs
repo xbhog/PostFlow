@@ -2,29 +2,9 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { DEFAULT_THEME_ID } = require('./theme-defaults.cjs');
+const { pathExists, writeJsonAtomic, writeTextAtomic } = require('./fs-utils.cjs');
 
 const ARTICLE_ID_PATTERN = /^[a-zA-Z0-9-]+$/;
-
-async function pathExists(targetPath) {
-  try {
-    await fs.access(targetPath);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function writeJsonAtomic(filePath, value) {
-  const temporaryPath = `${filePath}.tmp`;
-  await fs.writeFile(temporaryPath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
-  await fs.rename(temporaryPath, filePath);
-}
-
-async function writeTextAtomic(filePath, value) {
-  const temporaryPath = `${filePath}.tmp`;
-  await fs.writeFile(temporaryPath, value, 'utf8');
-  await fs.rename(temporaryPath, filePath);
-}
 
 async function readLatestPublish(articleDirectory) {
   try {

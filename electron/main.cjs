@@ -16,6 +16,11 @@ const { PublishRecordService } = require('./publish-record-service.cjs');
 const { migrateLegacyUserData } = require('./user-data-migration.cjs');
 
 const isSmokeTest = process.argv.includes('--smoke-test');
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+
+if (!hasSingleInstanceLock) {
+  app.quit();
+}
 
 let mainWindow = null;
 let articleService = null;
@@ -69,6 +74,13 @@ function openExternalUrl(value) {
   } catch {
     // Ignore malformed external links.
   }
+}
+
+function focusMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
 }
 
 function createWindow() {
@@ -244,7 +256,14 @@ function registerIpcHandlers() {
   handle('publishing:resolve-unknown', async (_event, input) => wechatPublisher.resolveUnknown(input));
 }
 
+if (hasSingleInstanceLock) {
+  app.on('second-instance', () => {
+    focusMainWindow();
+  });
+}
+
 app.whenReady().then(async () => {
+  if (!hasSingleInstanceLock) return;
   const migratedFiles = await migrateLegacyUserData(app);
   if (migratedFiles.length > 0) {
     console.info(`Migrated ${migratedFiles.length} legacy PostFlow configuration file(s).`);

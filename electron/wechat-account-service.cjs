@@ -3,14 +3,9 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { safeStorage } = require('electron');
 const { DEFAULT_THEME_ID } = require('./theme-defaults.cjs');
+const { writeJsonAtomic } = require('./fs-utils.cjs');
 
 const ACCOUNT_ID_PATTERN = /^[a-zA-Z0-9-]+$/;
-
-async function writeJsonAtomic(filePath, value) {
-  const temporaryPath = `${filePath}.${crypto.randomUUID()}.tmp`;
-  await fs.writeFile(temporaryPath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
-  await fs.rename(temporaryPath, filePath);
-}
 
 function createAccountError(code, message, cause) {
   const error = new Error(message);

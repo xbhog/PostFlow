@@ -1,5 +1,7 @@
 import TurndownService from 'turndown';
 import { gfm } from 'turndown-plugin-gfm';
+import type { EditorHandle } from './editorHandle';
+import { insertAtCursor } from './editorHandle';
 
 const turndownService = new TurndownService({
     headingStyle: 'atx',
@@ -83,50 +85,32 @@ function fileToDataUrl(file: File): Promise<string> {
     });
 }
 
-export function insertAtSelection(
-    textarea: HTMLTextAreaElement,
-    insertedText: string,
-    setMarkdownInput: (val: string) => void
-) {
-    const currentValue = textarea.value;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const newValue = currentValue.substring(0, start) + insertedText + currentValue.substring(end);
-    setMarkdownInput(newValue);
-
-    setTimeout(() => {
-        const nextPos = start + insertedText.length;
-        textarea.selectionStart = textarea.selectionEnd = nextPos;
-        textarea.focus();
-    }, 0);
+export function insertAtSelection(editor: EditorHandle, insertedText: string) {
+    insertAtCursor(editor, insertedText);
 }
 
-export type ClipboardImageHandler = (
-    files: File[],
-    textarea: HTMLTextAreaElement
-) => void | Promise<void>;
+export type ClipboardImageHandler = (files: File[]) => void | Promise<void>;
 
 export function handleSmartPaste(
-    e: React.ClipboardEvent<HTMLTextAreaElement>,
-    setMarkdownInput: (val: string) => void,
+    event: ClipboardEvent,
+    editor: EditorHandle,
     onImageFiles?: ClipboardImageHandler
-): void {
-    const clipboardData = e.clipboardData;
-    if (!clipboardData) return;
+): boolean {
+    const clipboardData = event.clipboardData;
+    if (!clipboardData) return false;
 
     const htmlData = clipboardData.getData('text/html');
     const textData = clipboardData.getData('text/plain');
     const imageFiles = getClipboardImageFiles(clipboardData);
 
     if (imageFiles.length > 0) {
-        e.preventDefault();
-        const textarea = e.currentTarget;
+        event.preventDefault();
         if (onImageFiles) {
-            Promise.resolve(onImageFiles(imageFiles, textarea)).catch((error) => {
+            Promise.resolve(onImageFiles(imageFiles)).catch((error) => {
                 console.error('Clipboard image ingestion failed:', error);
                 alert(error instanceof Error ? error.message : '粘贴图片失败，请重试');
             });
-            return;
+            return true;
         }
 
         Promise.all(imageFiles.map(fileToDataUrl))
@@ -135,43 +119,45 @@ export function handleSmartPaste(
                     .filter(Boolean)
                     .map((src, index) => `![图片${dataUrls.length > 1 ? ` ${index + 1}` : ''}](${src})`)
                     .join('\n\n');
-                if (markdownImages) insertAtSelection(textarea, markdownImages, setMarkdownInput);
+                if (markdownImages) insertAtSelection(editor, markdownImages);
             })
             .catch((error) => {
                 console.error('Clipboard image conversion failed:', error);
                 alert('粘贴图片失败，请重试');
             });
-        return;
+        return true;
     }
 
     if (textData && /^\[Image\s*#?\d*\]$/i.test(textData.trim())) {
-        e.preventDefault();
-        return;
+        event.preventDefault();
+        return true;
     }
 
-    if (isIDEFormattedHTML(htmlData, textData) && textData && isMarkdown(textData)) return;
+    if (isIDEFormattedHTML(htmlData, textData) && textData && isMarkdown(textData)) return false;
 
     if (htmlData && htmlData.trim() !== '') {
         const hasPreTag = /<pre[\s>]/.test(htmlData);
         const hasCodeTag = /<code[\s>]/.test(htmlData);
         const isMainlyCode = (hasPreTag || hasCodeTag) && !htmlData.includes('<p') && !htmlData.includes('<div');
-        if (isMainlyCode) return;
+        if (isMainlyCode) return false;
 
         if (htmlData.includes('file:///') || htmlData.includes('src="file:')) {
-            e.preventDefault();
-            return;
+            event.preventDefault();
+            return true;
         }
 
-        e.preventDefault();
+        event.preventDefault();
         try {
             let markdown = turndownService.turndown(htmlData);
             markdown = markdown.replace(/\n{3,}/g, '\n\n');
-            insertAtSelection(e.currentTarget, markdown, setMarkdownInput);
+            insertAtSelection(editor, markdown);
         } catch (error) {
             console.error('HTML to Markdown conversion failed:', error);
-            insertAtSelection(e.currentTarget, textData, setMarkdownInput);
+            insertAtSelection(editor, textData);
         }
-    } else if (textData && isMarkdown(textData)) {
-        return;
+        return true;
     }
+
+    if (textData && isMarkdown(textData)) return false;
+    return false;
 }

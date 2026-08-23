@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { getEditorMarkdown, pasteHtmlIntoEditor, setEditorMarkdown } from './editor';
 
 function buildLongMarkdown() {
     return Array.from({ length: 120 }, (_, index) => `## Section ${index + 1}\n\n这是第 ${index + 1} 段内容，用来验证编辑器和预览区的滚动同步是否稳定。\n\n`).join('');
@@ -94,9 +95,8 @@ test('creates, saves and reopens a browser article', async ({ page }) => {
     await createArticleAndOpenEditor(page);
 
     const titleInput = page.getByLabel('文章标题');
-    const editor = page.getByTestId('editor-input');
     await titleInput.fill('PostFlow 本地文章测试');
-    await editor.fill('# 本地文章\n\n这段内容应该自动保存。');
+    await setEditorMarkdown(page, '# 本地文章\n\n这段内容应该自动保存。');
     await waitForArticleSaved(page);
 
     await page.getByRole('button', { name: /文章列表/ }).click();
@@ -105,7 +105,7 @@ test('creates, saves and reopens a browser article', async ({ page }) => {
 
     await page.getByText('PostFlow 本地文章测试').click();
     await expect(titleInput).toHaveValue('PostFlow 本地文章测试');
-    await expect(editor).toHaveValue('# 本地文章\n\n这段内容应该自动保存。');
+    await expect.poll(async () => getEditorMarkdown(page)).toBe('# 本地文章\n\n这段内容应该自动保存。');
 });
 
 test('keeps the copy button visible on mobile', async ({ page }) => {
@@ -126,8 +126,7 @@ test('keeps the copy button visible on mobile', async ({ page }) => {
 test('renders bold text with punctuation without leaking markdown markers', async ({ page }) => {
     await createArticleAndOpenEditor(page);
 
-    const editor = page.getByTestId('editor-input');
-    await editor.fill('2025年初，伦敦黄金市场的一个月拆借利率一度升至**5%**。');
+    await setEditorMarkdown(page, '2025年初，伦敦黄金市场的一个月拆借利率一度升至**5%**。');
 
     const preview = page.getByTestId('preview-content');
     await expect(preview.locator('strong')).toHaveText('5%');
@@ -136,20 +135,70 @@ test('renders bold text with punctuation without leaking markdown markers', asyn
 });
 
 for (const device of [
-    { testId: 'device-mobile', label: 'mobile' },
-    { testId: 'device-tablet', label: 'tablet' }
+    { testId: 'device-mobile', label: 'mobile', previewScroll: 'preview-inner-scroll' },
+    { testId: 'device-tablet', label: 'tablet', previewScroll: 'preview-inner-scroll' },
+    { testId: 'device-pc', label: 'pc', previewScroll: 'preview-outer-scroll' }
 ] as const) {
     test(`syncs editor and ${device.label} preview scrolling in both directions`, async ({ page }) => {
         await page.setViewportSize({ width: 1440, height: 900 });
         await createArticleAndOpenEditor(page);
 
-        const editor = page.getByTestId('editor-input');
-        await editor.fill(buildLongMarkdown());
+        await setEditorMarkdown(page, buildLongMarkdown());
         await page.locator(`[data-testid="${device.testId}"]:visible`).click();
-        await waitForScrollableArea(page, 'editor-input');
-        await waitForScrollableArea(page, 'preview-inner-scroll');
+        await waitForScrollableArea(page, 'editor-scroll');
+        await waitForScrollableArea(page, device.previewScroll);
 
-        await scrollAndWaitForSync(page, 'editor-input', 'preview-inner-scroll', 0.72);
-        await scrollAndWaitForSync(page, 'preview-inner-scroll', 'editor-input', 0.28);
+        await scrollAndWaitForSync(page, 'editor-scroll', device.previewScroll, 0.72);
+        await scrollAndWaitForSync(page, device.previewScroll, 'editor-scroll', 0.28);
     });
 }
+
+test('converts pasted rich HTML into Markdown', async ({ page }) => {
+    await createArticleAndOpenEditor(page);
+
+    await pasteHtmlIntoEditor(
+        page,
+        '<div data-lark-record><h2>飞书标题</h2><p>正文里有<strong>加粗</strong>和<a href="https://example.com">链接</a></p></div>',
+        '飞书标题\n正文里有加粗和链接'
+    );
+
+    await expect.poll(async () => getEditorMarkdown(page)).toContain('## 飞书标题');
+    await expect.poll(async () => getEditorMarkdown(page)).toContain('**加粗**');
+    await expect.poll(async () => getEditorMarkdown(page)).toContain('[链接](https://example.com)');
+    await expect(page.getByTestId('preview-content').locator('h2')).toHaveText('飞书标题');
+});
+
+test('renders a Typora-style heading after leaving the line', async ({ page }) => {
+    await createArticleAndOpenEditor(page);
+    await setEditorMarkdown(page, '# 即时标题\n\n离开标题行后应渲染成大标题。');
+
+    const editor = page.getByTestId('editor-input');
+    await editor.locator('p').click();
+    const heading = editor.locator('h1');
+    await expect(heading).toBeVisible();
+    await expect(heading).not.toHaveClass(/vditor-ir__node--expand/);
+    await expect(heading.locator('.vditor-ir__marker').first()).toBeHidden();
+    await expect(page.getByTestId('preview-content').locator('h1')).toHaveText('即时标题');
+});
+
+test('selects the matching Markdown when a preview heading or image is clicked', async ({ page }) => {
+    await createArticleAndOpenEditor(page);
+    await setEditorMarkdown(page, [
+        '# 定位标题',
+        '',
+        '第一段说明文字。',
+        '',
+        '![封面](https://mock-assets.postflow.local/cover.png)',
+        '',
+        '第二段说明文字。'
+    ].join('\n'));
+
+    const preview = page.getByTestId('preview-content');
+    const editor = page.getByTestId('editor-input');
+    await expect(preview.locator('h1')).toHaveText('定位标题');
+    await preview.locator('h1').click();
+    await expect(editor.locator('h1')).toBeInViewport();
+
+    await preview.locator('img').click();
+    await expect(editor.locator('img')).toBeInViewport();
+});

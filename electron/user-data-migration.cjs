@@ -1,20 +1,12 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
+const { pathExists } = require('./fs-utils.cjs');
 
 const MIGRATED_FILES = [
   'workspace-settings.json',
   'r2-storage-config.json',
   'wechat-accounts.json'
 ];
-
-async function pathExists(targetPath) {
-  try {
-    await fs.access(targetPath);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 async function migrateLegacyUserData(app) {
   const currentDirectory = path.resolve(app.getPath('userData'));

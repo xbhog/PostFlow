@@ -4,89 +4,36 @@ import html2pdf from 'html2pdf.js';
 import { md, preprocessMarkdown, applyTheme } from './lib/markdown';
 import { markElementIndexes } from './lib/markdownIndexer';
 import { makeWeChatCompatible, cleanInternalAttributes } from './lib/wechatCompat';
-import { DEFAULT_THEME_ID, THEMES } from './lib/themes';
-import { findImagePosition, selectTextAreaRange } from './lib/imageSelector';
-import { findElementPosition, type ElementLocation } from './lib/markdownLocator';
-import { insertAtSelection } from './lib/htmlToMarkdown';
+import { THEMES } from './lib/themes';
+import { findElementPosition } from './lib/markdownLocator';
 import { workspaceClient } from './lib/workspace';
-import {
-    containsAssetPlaceholder,
-    createAssetPlaceholder,
-    replaceAssetPlaceholder
-} from './features/assets/asset-placeholder';
-import type { ArticleDocument, ArticleSummary } from './types/article';
-import type {
-    AssetProgressEvent,
-    AssetRecord,
-    AssetSourceType,
-    PublicStorageConfig,
-    SaveStorageConfigInput,
-    StorageConnectionResult
-} from './types/assets';
+import { containsAssetPlaceholder, replaceAssetPlaceholder } from './features/assets/asset-placeholder';
+import type { EditorHandle } from './lib/editorHandle';
+import type { ArticleDocument } from './types/article';
+import type { SaveStorageConfigInput, StorageConnectionResult } from './types/assets';
 import Header from './components/Header';
 import ThemeSelector from './components/ThemeSelector';
 import Toolbar from './components/Toolbar';
 import EditorPanel from './components/EditorPanel';
 import PreviewPanel from './components/PreviewPanel';
 import ArticleLibrary from './components/ArticleLibrary';
-import ArticleEditorBar, { type SaveStatus } from './components/ArticleEditorBar';
+import ArticleEditorBar from './components/ArticleEditorBar';
 import StorageSettings from './components/StorageSettings';
 import AssetUploadQueue from './components/AssetUploadQueue';
 import NoticeToast from './components/NoticeToast';
 import WeChatAccountSettings from './components/WeChatAccountSettings';
 import PublishButton, { PublishTriggerButton } from './components/PublishButton';
-
-const EMPTY_STORAGE_CONFIG: PublicStorageConfig = {
-    configured: false,
-    name: 'Cloudflare R2',
-    accountId: '',
-    bucket: '',
-    endpoint: '',
-    publicBaseUrl: '',
-    objectPrefix: 'postflow',
-    optimizeImages: true,
-    maxWidth: 2560,
-    jpegQuality: 82,
-    webpQuality: 82,
-    accessKeyIdMasked: '',
-    hasSecretAccessKey: false
-};
-
-function toArticleSummary(article: ArticleDocument, previous?: ArticleSummary): ArticleSummary {
-    return {
-        id: article.id,
-        title: article.title,
-        themeId: article.themeId,
-        version: article.version,
-        createdAt: article.createdAt,
-        updatedAt: article.updatedAt,
-        lastPublish: article.lastPublish ?? previous?.lastPublish
-    };
-}
-
-function createSnapshot(title: string, markdown: string, themeId: string) {
-    return JSON.stringify({
-        title: title.trim() || '未命名文章',
-        markdown,
-        themeId
-    });
-}
-
-function sortAssets(assets: AssetRecord[]) {
-    return [...assets].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
-}
+import { useNotice } from './hooks/useNotice';
+import { toArticleSummary, useAutoSave } from './hooks/useAutoSave';
+import { useScrollSync } from './hooks/useScrollSync';
+import { useAssetPipeline } from './hooks/useAssetPipeline';
+import { useArticleWorkspace, useStorageConfig, useWorkspaceBootstrap } from './hooks/useArticleWorkspace';
 
 export default function App() {
     const [themeMode, setThemeMode] = useState<'light' | 'dark'>('light');
     const [viewMode, setViewMode] = useState<'library' | 'editor'>('library');
-    const [articles, setArticles] = useState<ArticleSummary[]>([]);
     const [activeArticle, setActiveArticle] = useState<ArticleDocument | null>(null);
     const [articleTitle, setArticleTitle] = useState('');
-    const [workspacePath, setWorkspacePath] = useState('');
-    const [workspaceError, setWorkspaceError] = useState('');
-    const [isWorkspaceLoading, setIsWorkspaceLoading] = useState(true);
-    const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
-
     const [markdownInput, setMarkdownInput] = useState('');
     const [renderedHtml, setRenderedHtml] = useState('');
     const [activeTheme, setActiveTheme] = useState(THEMES[0].id);
@@ -95,87 +42,106 @@ export default function App() {
     const [previewDevice, setPreviewDevice] = useState<'mobile' | 'tablet' | 'pc'>('pc');
     const [activePanel, setActivePanel] = useState<'editor' | 'preview'>('editor');
     const [scrollSyncEnabled, setScrollSyncEnabled] = useState(true);
-
-    const [storageConfig, setStorageConfig] = useState<PublicStorageConfig>(EMPTY_STORAGE_CONFIG);
     const [storageSettingsOpen, setStorageSettingsOpen] = useState(false);
     const [wechatSettingsOpen, setWechatSettingsOpen] = useState(false);
     const [publishOpen, setPublishOpen] = useState(false);
     const [assetQueueOpen, setAssetQueueOpen] = useState(false);
-    const [assets, setAssets] = useState<AssetRecord[]>([]);
-    const [notice, setNotice] = useState<{ message: string; tone: 'success' | 'error' } | null>(null);
 
     const previewRef = useRef<HTMLDivElement>(null);
-    const editorScrollRef = useRef<HTMLTextAreaElement>(null);
     const previewOuterScrollRef = useRef<HTMLDivElement>(null);
     const previewInnerScrollRef = useRef<HTMLDivElement>(null);
-    const scrollSyncLockRef = useRef<'editor' | 'preview' | null>(null);
-    const scrollLockReleaseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const noticeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const lastSavedSnapshotRef = useRef('');
-    const previousFailedAssetCountRef = useRef(0);
+    const editorRef = useRef<EditorHandle | null>(null);
 
-    const showNotice = useCallback((message: string, tone: 'success' | 'error' = 'success') => {
-        if (noticeTimeoutRef.current) clearTimeout(noticeTimeoutRef.current);
-        setNotice({ message, tone });
-        noticeTimeoutRef.current = setTimeout(() => {
-            setNotice(null);
-            noticeTimeoutRef.current = null;
-        }, 3200);
-    }, []);
+    const { notice, setNotice, showNotice } = useNotice();
+    const { storageConfig, setStorageConfig, loadStorageConfig } = useStorageConfig();
+    const openArticleRef = useRef<(article: ArticleDocument) => Promise<void>>(async () => {});
 
-    useEffect(() => () => {
-        if (noticeTimeoutRef.current) clearTimeout(noticeTimeoutRef.current);
-    }, []);
+    const {
+        articles,
+        setArticles,
+        workspacePath,
+        workspaceError,
+        isWorkspaceLoading,
+        loadLibrary,
+        handleCreateArticle,
+        handleOpenArticle,
+        handleDeleteArticle,
+        handleSelectWorkspace,
+        handleRevealWorkspace
+    } = useArticleWorkspace({
+        onOpenArticle: (article) => openArticleRef.current(article)
+    });
 
-    const upsertAsset = useCallback((nextAsset: AssetRecord) => {
-        setAssets((current) => {
-            const remaining = current.filter((asset) => asset.id !== nextAsset.id);
-            return sortAssets([...remaining, nextAsset]);
+    const handleSavedArticle = useCallback((savedArticle: ArticleDocument) => {
+        setActiveArticle(savedArticle);
+        setArticles((current) => {
+            const previous = current.find((article) => article.id === savedArticle.id);
+            const remaining = current.filter((article) => article.id !== savedArticle.id);
+            return [toArticleSummary(savedArticle, previous), ...remaining]
+                .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
         });
-    }, []);
+    }, [setArticles]);
 
-    const applyCompletedAsset = useCallback((asset: AssetRecord) => {
-        upsertAsset(asset);
-        if (asset.status === 'success' && asset.publicUrl) {
-            setMarkdownInput((current) => replaceAssetPlaceholder(current, asset.id, asset.publicUrl!));
-        }
-    }, [upsertAsset]);
+    const { saveStatus, persistActiveArticle, markSaved, flushPendingSave } = useAutoSave({
+        activeArticle,
+        articleTitle,
+        markdownInput,
+        activeTheme,
+        onSaved: handleSavedArticle
+    });
 
-    const loadStorageConfig = useCallback(async () => {
-        try {
-            setStorageConfig(await workspaceClient.storage.getConfig());
-        } catch (error) {
-            console.error('Unable to load storage configuration:', error);
-            setStorageConfig(EMPTY_STORAGE_CONFIG);
-        }
-    }, []);
+    const {
+        assets,
+        failedAssetCount,
+        activeAssetCount,
+        loadAssets,
+        resetAssets,
+        handleImageFiles,
+        handleRetryAsset,
+        handleRetryAllAssets,
+        handleRevealAsset
+    } = useAssetPipeline({
+        activeArticle,
+        storageConfig,
+        getEditor: () => editorRef.current,
+        setMarkdownInput,
+        showNotice,
+        onNeedStorageSettings: () => setStorageSettingsOpen(true)
+    });
 
-    const loadLibrary = useCallback(async () => {
-        setIsWorkspaceLoading(true);
-        setWorkspaceError('');
-        try {
-            const [path, articleList] = await Promise.all([
-                workspaceClient.workspace.getPath(),
-                workspaceClient.articles.list()
-            ]);
-            setWorkspacePath(path);
-            setArticles(articleList);
-        } catch (error) {
-            setWorkspaceError(error instanceof Error ? error.message : '读取本地文章失败。');
-        } finally {
-            setIsWorkspaceLoading(false);
-        }
-    }, []);
+    const enterArticle = useCallback(async (article: ArticleDocument) => {
+        const nextTheme = THEMES.some((theme) => theme.id === article.themeId)
+            ? article.themeId
+            : THEMES[0].id;
+        const articleAssets = await loadAssets(article.id);
+        let resolvedMarkdown = article.markdown;
+        articleAssets.forEach((asset) => {
+            if (asset.status === 'success' && asset.publicUrl) {
+                resolvedMarkdown = replaceAssetPlaceholder(resolvedMarkdown, asset.id, asset.publicUrl);
+            }
+        });
 
-    useEffect(() => {
-        void Promise.all([loadLibrary(), loadStorageConfig()]);
-    }, [loadLibrary, loadStorageConfig]);
+        resetAssets(articleAssets);
+        setActiveArticle({ ...article, themeId: nextTheme });
+        setArticleTitle(article.title);
+        setMarkdownInput(resolvedMarkdown);
+        setActiveTheme(nextTheme);
+        setActivePanel('editor');
+        markSaved(article.title, article.markdown, nextTheme);
+        setViewMode('editor');
+    }, [loadAssets, markSaved, resetAssets]);
 
-    useEffect(() => workspaceClient.assets.onProgress((event: AssetProgressEvent) => {
-        if (event.articleId !== activeArticle?.id) return;
-        applyCompletedAsset(event.asset);
-    }), [activeArticle?.id, applyCompletedAsset]);
+    openArticleRef.current = enterArticle;
+
+    useWorkspaceBootstrap(loadLibrary, loadStorageConfig);
+
+    const { handleEditorScroll, handlePreviewOuterScroll, handlePreviewInnerScroll } = useScrollSync({
+        enabled: scrollSyncEnabled,
+        previewDevice,
+        getEditorScrollElement: () => editorRef.current?.getScrollElement() ?? null,
+        previewOuterScrollRef,
+        previewInnerScrollRef
+    });
 
     const toggleTheme = () => {
         setThemeMode((previous) => {
@@ -186,237 +152,14 @@ export default function App() {
         });
     };
 
-    const enterArticle = useCallback(async (article: ArticleDocument) => {
-        const nextTheme = THEMES.some((theme) => theme.id === article.themeId)
-            ? article.themeId
-            : THEMES[0].id;
-        let articleAssets: AssetRecord[] = [];
-        try {
-            articleAssets = await workspaceClient.assets.list(article.id);
-        } catch (error) {
-            console.error('Unable to load article assets:', error);
-        }
-
-        let resolvedMarkdown = article.markdown;
-        articleAssets.forEach((asset) => {
-            if (asset.status === 'success' && asset.publicUrl) {
-                resolvedMarkdown = replaceAssetPlaceholder(resolvedMarkdown, asset.id, asset.publicUrl);
-            }
-        });
-
-        setAssets(sortAssets(articleAssets));
-        setActiveArticle({ ...article, themeId: nextTheme });
-        setArticleTitle(article.title);
-        setMarkdownInput(resolvedMarkdown);
-        setActiveTheme(nextTheme);
-        setActivePanel('editor');
-        setSaveStatus('saved');
-        lastSavedSnapshotRef.current = createSnapshot(article.title, article.markdown, nextTheme);
-        setViewMode('editor');
-    }, []);
-
-    const handleCreateArticle = async () => {
-        setWorkspaceError('');
-        try {
-            const article = await workspaceClient.articles.create({ themeId: DEFAULT_THEME_ID });
-            setArticles((current) => [toArticleSummary(article), ...current]);
-            await enterArticle(article);
-        } catch (error) {
-            setWorkspaceError(error instanceof Error ? error.message : '创建文章失败。');
-        }
-    };
-
-    const handleOpenArticle = async (articleId: string) => {
-        setWorkspaceError('');
-        try {
-            await enterArticle(await workspaceClient.articles.read(articleId));
-        } catch (error) {
-            setWorkspaceError(error instanceof Error ? error.message : '打开文章失败。');
-        }
-    };
-
-    const persistActiveArticle = useCallback(async () => {
-        if (!activeArticle) return true;
-        const snapshot = createSnapshot(articleTitle, markdownInput, activeTheme);
-        if (snapshot === lastSavedSnapshotRef.current) {
-            setSaveStatus('saved');
-            return true;
-        }
-
-        setSaveStatus('saving');
-        try {
-            const savedArticle = await workspaceClient.articles.save({
-                id: activeArticle.id,
-                title: articleTitle,
-                markdown: markdownInput,
-                themeId: activeTheme
-            });
-            lastSavedSnapshotRef.current = createSnapshot(savedArticle.title, savedArticle.markdown, savedArticle.themeId);
-            setActiveArticle(savedArticle);
-            setArticles((current) => {
-                const previous = current.find((article) => article.id === savedArticle.id);
-                const remaining = current.filter((article) => article.id !== savedArticle.id);
-                return [toArticleSummary(savedArticle, previous), ...remaining]
-                    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
-            });
-            setSaveStatus('saved');
-            return true;
-        } catch (error) {
-            console.error('Unable to save article:', error);
-            setSaveStatus('error');
-            return false;
-        }
-    }, [activeArticle, articleTitle, markdownInput, activeTheme]);
-
-    useEffect(() => {
-        if (!activeArticle) return;
-        const snapshot = createSnapshot(articleTitle, markdownInput, activeTheme);
-        if (snapshot === lastSavedSnapshotRef.current) return;
-
-        setSaveStatus('dirty');
-        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-        saveTimeoutRef.current = setTimeout(() => {
-            void persistActiveArticle();
-            saveTimeoutRef.current = null;
-        }, 800);
-
-        return () => {
-            if (saveTimeoutRef.current) {
-                clearTimeout(saveTimeoutRef.current);
-                saveTimeoutRef.current = null;
-            }
-        };
-    }, [activeArticle, articleTitle, markdownInput, activeTheme, persistActiveArticle]);
-
-    useEffect(() => {
-        const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-            if (saveStatus === 'dirty' || saveStatus === 'saving') event.preventDefault();
-        };
-        window.addEventListener('beforeunload', handleBeforeUnload);
-        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-    }, [saveStatus]);
-
     const handleBackToLibrary = async () => {
-        if (saveTimeoutRef.current) {
-            clearTimeout(saveTimeoutRef.current);
-            saveTimeoutRef.current = null;
-        }
+        flushPendingSave();
         if (!(await persistActiveArticle())) return;
         setActiveArticle(null);
-        setAssets([]);
+        resetAssets([]);
         setPublishOpen(false);
         setViewMode('library');
         await loadLibrary();
-    };
-
-    const handleDeleteArticle = async (articleId: string) => {
-        const article = articles.find((item) => item.id === articleId);
-        if (!window.confirm(`确定删除“${article?.title || '未命名文章'}”吗？此操作会删除本地文章目录。`)) return;
-        try {
-            await workspaceClient.articles.delete(articleId);
-            setArticles((current) => current.filter((item) => item.id !== articleId));
-        } catch (error) {
-            setWorkspaceError(error instanceof Error ? error.message : '删除文章失败。');
-        }
-    };
-
-    const handleSelectWorkspace = async () => {
-        try {
-            const result = await workspaceClient.workspace.select();
-            if (!result.canceled) {
-                setWorkspacePath(result.workspacePath);
-                await loadLibrary();
-            }
-        } catch (error) {
-            setWorkspaceError(error instanceof Error ? error.message : '更换工作目录失败。');
-        }
-    };
-
-    const handleRevealWorkspace = async () => {
-        const result = await workspaceClient.workspace.reveal();
-        if (!result.ok && result.errorMessage) setWorkspaceError(result.errorMessage);
-    };
-
-    const handleImageFiles = async (
-        files: File[],
-        textarea: HTMLTextAreaElement,
-        sourceType: AssetSourceType
-    ) => {
-        if (!activeArticle) return;
-        if (files.length > 20) {
-            alert('单次最多处理 20 张图片。');
-            return;
-        }
-
-        const validFiles = files.filter((file) => file.type.startsWith('image/'));
-        if (validFiles.length !== files.length) alert('部分文件不是图片，已跳过。');
-        if (validFiles.some((file) => file.size > 20 * 1024 * 1024)) {
-            alert('单张图片不能超过 20 MB。');
-            return;
-        }
-
-        let upload = storageConfig.configured || !workspaceClient.isDesktop;
-        if (workspaceClient.isDesktop && !storageConfig.configured) {
-            const openSettings = window.confirm('尚未配置 R2。点击“确定”前往设置；点击“取消”将仅保存本地图片。');
-            if (openSettings) {
-                setStorageSettingsOpen(true);
-                return;
-            }
-            upload = false;
-        }
-
-        const jobs = validFiles.map((file, index) => ({
-            file,
-            assetId: crypto.randomUUID(),
-            alt: validFiles.length > 1 ? `图片 ${index + 1}` : '图片'
-        }));
-        insertAtSelection(
-            textarea,
-            jobs.map((job) => createAssetPlaceholder(job.assetId, job.alt)).join('\n\n'),
-            setMarkdownInput
-        );
-        await Promise.all(jobs.map(async ({ file, assetId }) => {
-            try {
-                const result = await workspaceClient.assets.ingest({
-                    articleId: activeArticle.id,
-                    assetId,
-                    bytes: await file.arrayBuffer(),
-                    mimeType: file.type,
-                    originalName: file.name || `clipboard-${assetId}.png`,
-                    sourceType,
-                    upload
-                });
-                applyCompletedAsset(result);
-            } catch (error) {
-                console.error('Unable to ingest image:', error);
-                showNotice(error instanceof Error ? error.message : '图片处理失败。', 'error');
-            }
-        }));
-    };
-
-    const handleRetryAsset = async (assetId: string) => {
-        if (!activeArticle) return;
-        try {
-            applyCompletedAsset(await workspaceClient.assets.retry(activeArticle.id, assetId));
-        } catch (error) {
-            alert(error instanceof Error ? error.message : '图片重试失败。');
-        }
-    };
-
-    const handleRetryAllAssets = async () => {
-        if (!activeArticle) return;
-        try {
-            const results = await workspaceClient.assets.retryAll(activeArticle.id);
-            results.forEach(applyCompletedAsset);
-        } catch (error) {
-            alert(error instanceof Error ? error.message : '图片批量重试失败。');
-        }
-    };
-
-    const handleRevealAsset = async (assetId: string) => {
-        if (!activeArticle) return;
-        const result = await workspaceClient.assets.reveal(activeArticle.id, assetId);
-        if (!result.ok && result.errorMessage) alert(result.errorMessage);
     };
 
     const handleSaveStorageConfig = async (input: SaveStorageConfigInput) => {
@@ -435,73 +178,6 @@ export default function App() {
         const rawHtml = md.render(preprocessMarkdown(markdownInput));
         setRenderedHtml(markElementIndexes(applyTheme(rawHtml, activeTheme)));
     }, [markdownInput, activeTheme]);
-
-    useEffect(() => {
-        if (!scrollSyncEnabled) {
-            scrollSyncLockRef.current = null;
-            if (scrollLockReleaseTimeoutRef.current) {
-                clearTimeout(scrollLockReleaseTimeoutRef.current);
-                scrollLockReleaseTimeoutRef.current = null;
-            }
-        }
-    }, [scrollSyncEnabled]);
-
-    useEffect(() => {
-        scrollSyncLockRef.current = null;
-        if (scrollLockReleaseTimeoutRef.current) {
-            clearTimeout(scrollLockReleaseTimeoutRef.current);
-            scrollLockReleaseTimeoutRef.current = null;
-        }
-    }, [previewDevice]);
-
-    useEffect(() => () => {
-        if (scrollLockReleaseTimeoutRef.current) clearTimeout(scrollLockReleaseTimeoutRef.current);
-        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    }, []);
-
-    const getActivePreviewScrollElement = () => previewDevice === 'pc'
-        ? previewOuterScrollRef.current
-        : previewInnerScrollRef.current;
-
-    const syncScrollPosition = (
-        sourceElement: HTMLElement,
-        targetElement: HTMLElement,
-        sourcePanel: 'editor' | 'preview'
-    ) => {
-        if (!scrollSyncEnabled) return;
-        if (scrollSyncLockRef.current && scrollSyncLockRef.current !== sourcePanel) return;
-        const sourceMaxScroll = sourceElement.scrollHeight - sourceElement.clientHeight;
-        const targetMaxScroll = targetElement.scrollHeight - targetElement.clientHeight;
-        if (sourceMaxScroll <= 0) {
-            targetElement.scrollTop = 0;
-            return;
-        }
-
-        scrollSyncLockRef.current = sourcePanel;
-        targetElement.scrollTop = (sourceElement.scrollTop / sourceMaxScroll) * Math.max(targetMaxScroll, 0);
-        if (scrollLockReleaseTimeoutRef.current) clearTimeout(scrollLockReleaseTimeoutRef.current);
-        scrollLockReleaseTimeoutRef.current = setTimeout(() => {
-            if (scrollSyncLockRef.current === sourcePanel) scrollSyncLockRef.current = null;
-            scrollLockReleaseTimeoutRef.current = null;
-        }, 50);
-    };
-
-    const handleEditorScroll = () => {
-        const previewElement = getActivePreviewScrollElement();
-        if (editorScrollRef.current && previewElement) syncScrollPosition(editorScrollRef.current, previewElement, 'editor');
-    };
-
-    const handlePreviewOuterScroll = () => {
-        if (previewDevice === 'pc' && previewOuterScrollRef.current && editorScrollRef.current) {
-            syncScrollPosition(previewOuterScrollRef.current, editorScrollRef.current, 'preview');
-        }
-    };
-
-    const handlePreviewInnerScroll = () => {
-        if (previewDevice !== 'pc' && previewInnerScrollRef.current && editorScrollRef.current) {
-            syncScrollPosition(previewInnerScrollRef.current, editorScrollRef.current, 'preview');
-        }
-    };
 
     const ensureAssetsReady = () => {
         if (!containsAssetPlaceholder(markdownInput)) return true;
@@ -570,18 +246,18 @@ export default function App() {
         alt?: string;
         content?: string;
     }) => {
-        if (!editorScrollRef.current) return;
-        let location: ElementLocation | null = null;
+        const editor = editorRef.current;
+        if (!editor) return;
         if (info.type === 'image' && info.src) {
-            const match = findImagePosition(markdownInput, info.src, info.alt || '');
-            if (match) location = { start: match.start, end: match.end, type: 'image' };
+            editor.locateBlock({ type: 'image', src: info.src, alt: info.alt });
         } else {
-            location = findElementPosition(markdownInput, info.type, '', info.index);
+            const location = findElementPosition(markdownInput, info.type, '', info.index);
+            const text = location
+                ? markdownInput.slice(location.start, location.end)
+                : info.content || '';
+            editor.locateBlock({ type: info.type, text });
         }
-        if (location) {
-            selectTextAreaRange(editorScrollRef.current, location.start, location.end);
-            if (window.innerWidth < 768 && activePanel !== 'editor') setActivePanel('editor');
-        }
+        if (window.innerWidth < 768 && activePanel !== 'editor') setActivePanel('editor');
     }, [markdownInput, activePanel]);
 
     const deviceWidthClass = () => {
@@ -596,22 +272,30 @@ export default function App() {
         return 'md:grid-cols-[38.2fr_61.8fr]';
     };
 
-    const failedAssetCount = assets.filter((asset) => ['failed', 'interrupted'].includes(asset.status)).length;
-    const activeAssetCount = assets.filter((asset) => ['queued', 'processing', 'uploading'].includes(asset.status)).length;
-
-    useEffect(() => {
-        if (failedAssetCount > previousFailedAssetCountRef.current) {
-            showNotice('图片处理失败，点击“图片”查看并重试', 'error');
-        }
-        previousFailedAssetCountRef.current = failedAssetCount;
-    }, [failedAssetCount, showNotice]);
-
     const noticeToast = notice && (
         <NoticeToast
             message={notice.message}
             tone={notice.tone}
             onClose={() => setNotice(null)}
         />
+    );
+
+    const settingsModals = (
+        <>
+            <StorageSettings
+                open={storageSettingsOpen}
+                isDesktop={workspaceClient.isDesktop}
+                config={storageConfig}
+                onClose={() => setStorageSettingsOpen(false)}
+                onSave={handleSaveStorageConfig}
+                onTest={handleTestStorageConfig}
+            />
+            <WeChatAccountSettings
+                isDesktop={workspaceClient.isDesktop}
+                open={wechatSettingsOpen}
+                onOpenChange={setWechatSettingsOpen}
+            />
+        </>
     );
 
     if (viewMode === 'library') {
@@ -636,19 +320,7 @@ export default function App() {
                     onSelectWorkspace={() => void handleSelectWorkspace()}
                     onRevealWorkspace={() => void handleRevealWorkspace()}
                 />
-                <StorageSettings
-                    open={storageSettingsOpen}
-                    isDesktop={workspaceClient.isDesktop}
-                    config={storageConfig}
-                    onClose={() => setStorageSettingsOpen(false)}
-                    onSave={handleSaveStorageConfig}
-                    onTest={handleTestStorageConfig}
-                />
-                <WeChatAccountSettings
-                    isDesktop={workspaceClient.isDesktop}
-                    open={wechatSettingsOpen}
-                    onOpenChange={setWechatSettingsOpen}
-                />
+                {settingsModals}
                 {noticeToast}
             </div>
         );
@@ -681,46 +353,39 @@ export default function App() {
 
             <div className={`glass-toolbar z-[90] hidden grid-cols-1 px-0 transition-all duration-500 md:grid ${gridLayoutClass()}`}>
                 <ThemeSelector activeTheme={activeTheme} onThemeChange={setActiveTheme} />
-                <Toolbar previewDevice={previewDevice} onDeviceChange={setPreviewDevice} onExportPdf={handleExportPdf} onExportHtml={handleExportHtml} onCopy={handleCopy} copied={copied} isCopying={isCopying} scrollSyncEnabled={scrollSyncEnabled} onToggleScrollSync={() => setScrollSyncEnabled((previous) => !previous)} publishAction={<PublishTriggerButton onClick={() => setPublishOpen(true)} />} />
+                <Toolbar previewDevice={previewDevice} onDeviceChange={setPreviewDevice} onExportPdf={handleExportPdf} onExportHtml={handleExportHtml} onCopy={handleCopy} copied={copied} isCopying={isCopying} scrollSyncEnabled={scrollSyncEnabled} onToggleScrollSync={() => setScrollSyncEnabled((previous) => !previous)} publishAction={<PublishTriggerButton testId="publish-draft-button" onClick={() => setPublishOpen(true)} />} />
             </div>
 
             <div className="glass-toolbar z-[90] md:hidden">
                 <div className="no-scrollbar overflow-x-auto border-b border-[#00000010] dark:border-[#ffffff10]">
                     <ThemeSelector activeTheme={activeTheme} onThemeChange={setActiveTheme} />
                 </div>
-                <Toolbar previewDevice={previewDevice} onDeviceChange={setPreviewDevice} onExportPdf={handleExportPdf} onExportHtml={handleExportHtml} onCopy={handleCopy} copied={copied} isCopying={isCopying} scrollSyncEnabled={scrollSyncEnabled} onToggleScrollSync={() => setScrollSyncEnabled((previous) => !previous)} publishAction={<PublishTriggerButton onClick={() => setPublishOpen(true)} />} />
+                <Toolbar previewDevice={previewDevice} onDeviceChange={setPreviewDevice} onExportPdf={handleExportPdf} onExportHtml={handleExportHtml} onCopy={handleCopy} copied={copied} isCopying={isCopying} scrollSyncEnabled={scrollSyncEnabled} onToggleScrollSync={() => setScrollSyncEnabled((previous) => !previous)} publishAction={<PublishTriggerButton testId="publish-draft-button" onClick={() => setPublishOpen(true)} />} />
             </div>
 
             <main className={`relative grid flex-1 grid-cols-1 overflow-hidden transition-all duration-500 ${gridLayoutClass()}`}>
-                <div className={`${activePanel === 'editor' ? 'flex' : 'hidden'} flex-col overflow-hidden md:flex`}>
+                <div className={`${activePanel === 'editor' ? 'flex' : 'hidden'} h-full min-h-0 flex-col overflow-hidden md:flex`}>
                     <EditorPanel
                         markdownInput={markdownInput}
+                        dark={themeMode === 'dark'}
+                        editorRef={editorRef}
                         onInputChange={setMarkdownInput}
-                        editorScrollRef={editorScrollRef}
                         onEditorScroll={handleEditorScroll}
                         scrollSyncEnabled={scrollSyncEnabled}
                         onImageFiles={handleImageFiles}
-                        onOpenStorageSettings={() => setStorageSettingsOpen(true)}
-                        onOpenWeChatSettings={() => setWechatSettingsOpen(true)}
                         onOpenAssetQueue={() => setAssetQueueOpen(true)}
-                        publishAction={<PublishTriggerButton testId="publish-draft-button" onClick={() => setPublishOpen(true)} />}
                         assetCount={assets.length}
                         failedAssetCount={failedAssetCount}
                         activeAssetCount={activeAssetCount}
                         isDesktop={workspaceClient.isDesktop}
                     />
                 </div>
-                <div className={`${activePanel === 'preview' ? 'flex' : 'hidden'} flex-col overflow-hidden md:flex`}>
+                <div className={`${activePanel === 'preview' ? 'flex' : 'hidden'} h-full min-h-0 flex-col overflow-hidden md:flex`}>
                     <PreviewPanel renderedHtml={renderedHtml} deviceWidthClass={deviceWidthClass()} previewDevice={previewDevice} previewRef={previewRef} previewOuterScrollRef={previewOuterScrollRef} previewInnerScrollRef={previewInnerScrollRef} onPreviewOuterScroll={handlePreviewOuterScroll} onPreviewInnerScroll={handlePreviewInnerScroll} scrollSyncEnabled={scrollSyncEnabled} onImageClick={handleImageClick} />
                 </div>
             </main>
 
-            <StorageSettings open={storageSettingsOpen} isDesktop={workspaceClient.isDesktop} config={storageConfig} onClose={() => setStorageSettingsOpen(false)} onSave={handleSaveStorageConfig} onTest={handleTestStorageConfig} />
-            <WeChatAccountSettings
-                isDesktop={workspaceClient.isDesktop}
-                open={wechatSettingsOpen}
-                onOpenChange={setWechatSettingsOpen}
-            />
+            {settingsModals}
             {activeArticle && (
                 <PublishButton
                     article={{ ...activeArticle, title: articleTitle, markdown: markdownInput, themeId: activeTheme }}

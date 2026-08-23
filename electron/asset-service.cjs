@@ -2,24 +2,10 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { MAX_IMAGE_BYTES, detectImageType, processImage } = require('./image-processor.cjs');
 const { R2StorageProvider } = require('./storage/r2-storage-provider.cjs');
+const { pathExists, writeJsonAtomic } = require('./fs-utils.cjs');
 
 const ASSET_ID_PATTERN = /^[a-zA-Z0-9-]+$/;
 const MAX_BATCH_SIZE = 20;
-
-async function pathExists(targetPath) {
-  try {
-    await fs.access(targetPath);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function writeJsonAtomic(filePath, value) {
-  const temporaryPath = `${filePath}.tmp`;
-  await fs.writeFile(temporaryPath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
-  await fs.rename(temporaryPath, filePath);
-}
 
 function sanitizeFileName(value) {
   return String(value || 'image')

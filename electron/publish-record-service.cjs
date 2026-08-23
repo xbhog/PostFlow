@@ -1,15 +1,10 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const { writeJsonAtomic } = require('./fs-utils.cjs');
 
 const ID_PATTERN = /^[a-zA-Z0-9-]+$/;
 const VALID_STATUSES = new Set(['pending', 'success', 'failed', 'unknown']);
-
-async function writeJsonAtomic(filePath, value) {
-  const temporaryPath = `${filePath}.tmp`;
-  await fs.writeFile(temporaryPath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
-  await fs.rename(temporaryPath, filePath);
-}
 
 function createPublishRecordError(code, message, cause) {
   const error = new Error(message);

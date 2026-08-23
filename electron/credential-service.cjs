@@ -1,6 +1,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { safeStorage } = require('electron');
+const { writeJsonAtomic } = require('./fs-utils.cjs');
 
 const DEFAULT_IMAGE_OPTIONS = {
   optimizeImages: true,
@@ -24,12 +25,6 @@ function maskCredential(value) {
   if (!value) return '';
   if (value.length <= 8) return '••••••••';
   return `${value.slice(0, 4)}••••${value.slice(-4)}`;
-}
-
-async function writeJsonAtomic(filePath, value) {
-  const temporaryPath = `${filePath}.tmp`;
-  await fs.writeFile(temporaryPath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
-  await fs.rename(temporaryPath, filePath);
 }
 
 class CredentialService {

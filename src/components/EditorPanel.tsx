@@ -1,20 +1,19 @@
-import type { ReactNode } from 'react';
+import type { Ref } from 'react';
 import { useRef } from 'react';
-import { AlertCircle, ImagePlus, Images, Loader2, MessageCircleMore, Settings2, Wand2 } from 'lucide-react';
-import { handleSmartPaste } from '../lib/htmlToMarkdown';
+import { AlertCircle, ImagePlus, Images, Loader2, Wand2 } from 'lucide-react';
+import type { EditorHandle } from '../lib/editorHandle';
 import type { AssetSourceType } from '../types/assets';
+import MarkdownEditor from './MarkdownEditor';
 
 interface EditorPanelProps {
     markdownInput: string;
+    dark: boolean;
+    editorRef: Ref<EditorHandle>;
     onInputChange: (value: string) => void;
-    editorScrollRef: React.RefObject<HTMLTextAreaElement>;
     onEditorScroll: () => void;
     scrollSyncEnabled: boolean;
-    onImageFiles(files: File[], textarea: HTMLTextAreaElement, sourceType: AssetSourceType): void | Promise<void>;
-    onOpenStorageSettings(): void;
-    onOpenWeChatSettings(): void;
+    onImageFiles(files: File[], sourceType: AssetSourceType): void | Promise<void>;
     onOpenAssetQueue(): void;
-    publishAction?: ReactNode;
     assetCount: number;
     failedAssetCount: number;
     activeAssetCount: number;
@@ -23,15 +22,13 @@ interface EditorPanelProps {
 
 export default function EditorPanel({
     markdownInput,
+    dark,
+    editorRef,
     onInputChange,
-    editorScrollRef,
     onEditorScroll,
     scrollSyncEnabled,
     onImageFiles,
-    onOpenStorageSettings,
-    onOpenWeChatSettings,
     onOpenAssetQueue,
-    publishAction,
     assetCount,
     failedAssetCount,
     activeAssetCount,
@@ -39,42 +36,22 @@ export default function EditorPanel({
 }: EditorPanelProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const onPaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
-        handleSmartPaste(event, onInputChange, (files, textarea) => onImageFiles(files, textarea, 'clipboard'));
-    };
-
-    const onDrop = (event: React.DragEvent<HTMLTextAreaElement>) => {
-        const files = Array.from(event.dataTransfer.files || []);
-        if (files.length === 0) return;
-        event.preventDefault();
-        const images = files.filter((file) => file.type.startsWith('image/'));
-        if (images.length !== files.length) alert('PostFlow 当前只支持拖入图片文件。');
-        if (images.length > 0) void onImageFiles(images, event.currentTarget, 'drop');
-    };
-
     const onFileSelection = (event: React.ChangeEvent<HTMLInputElement>) => {
         const files = Array.from(event.target.files || []);
-        const textarea = editorScrollRef.current;
-        if (files.length > 0 && textarea) void onImageFiles(files, textarea, 'picker');
+        if (files.length > 0) void onImageFiles(files, 'picker');
         event.target.value = '';
     };
 
     return (
         <div className="relative z-30 flex min-h-0 flex-1 flex-col border-r border-[#00000015] bg-transparent dark:border-[#ffffff15]">
-            <textarea
-                ref={editorScrollRef}
-                data-testid="editor-input"
-                className="no-scrollbar w-full flex-1 resize-none bg-transparent p-8 font-mono text-[15px] leading-[1.8] text-[#1d1d1f] outline-none placeholder-[#86868b] dark:text-[#f5f5f7] dark:placeholder-[#6e6e73] md:p-10 md:text-[16px]"
+            <MarkdownEditor
+                ref={editorRef}
                 value={markdownInput}
-                onChange={(event) => onInputChange(event.target.value)}
-                onPaste={onPaste}
-                onDrop={onDrop}
-                onDragOver={(event) => {
-                    if (event.dataTransfer.types.includes('Files')) event.preventDefault();
-                }}
-                onScroll={scrollSyncEnabled ? onEditorScroll : undefined}
-                placeholder="在这里输入 Markdown 内容..."
-                spellCheck={false}
+                dark={dark}
+                scrollSyncEnabled={scrollSyncEnabled}
+                onChange={onInputChange}
+                onScroll={onEditorScroll}
+                onImageFiles={onImageFiles}
             />
 
             <input
@@ -127,13 +104,6 @@ export default function EditorPanel({
                             <span className="text-[#86868b] dark:text-[#a1a1a6]">{assetCount}</span>
                         )}
                     </button>
-                    <button type="button" onClick={onOpenStorageSettings} className="inline-flex items-center gap-1.5 rounded-lg border border-black/10 px-3 py-2 text-xs font-medium hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10">
-                        <Settings2 size={14} />图片存储
-                    </button>
-                    <button type="button" onClick={onOpenWeChatSettings} className="inline-flex items-center gap-1.5 rounded-lg border border-black/10 px-3 py-2 text-xs font-medium hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10">
-                        <MessageCircleMore size={14} />公众号
-                    </button>
-                    {publishAction}
                 </div>
             </div>
         </div>

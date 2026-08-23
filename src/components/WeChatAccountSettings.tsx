@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CheckCircle2, Loader2, MessageCircleMore, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { workspaceClient } from '../lib/workspace';
+import { DEFAULT_THEME_ID, THEMES } from '../lib/themes';
 import type {
   PublicWeChatAccount,
   SaveWeChatAccountInput,
@@ -13,7 +14,7 @@ const EMPTY_FORM: SaveWeChatAccountInput = {
   appId: '',
   appSecret: '',
   defaultAuthor: '',
-  defaultThemeId: 'mac',
+  defaultThemeId: DEFAULT_THEME_ID,
   defaultSourceUrl: '',
   defaultNeedOpenComment: false,
   defaultOnlyFansCanComment: false
@@ -21,10 +22,17 @@ const EMPTY_FORM: SaveWeChatAccountInput = {
 
 interface WeChatAccountSettingsProps {
   isDesktop: boolean;
+  open: boolean;
+  onOpenChange(open: boolean): void;
+  showTrigger?: boolean;
 }
 
-export default function WeChatAccountSettings({ isDesktop }: WeChatAccountSettingsProps) {
-  const [open, setOpen] = useState(false);
+export default function WeChatAccountSettings({
+  isDesktop,
+  open,
+  onOpenChange,
+  showTrigger = false
+}: WeChatAccountSettingsProps) {
   const [accounts, setAccounts] = useState<PublicWeChatAccount[]>([]);
   const [form, setForm] = useState<SaveWeChatAccountInput>(EMPTY_FORM);
   const [loading, setLoading] = useState(false);
@@ -32,6 +40,10 @@ export default function WeChatAccountSettings({ isDesktop }: WeChatAccountSettin
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+
+  const selectedThemeId = THEMES.some((theme) => theme.id === form.defaultThemeId)
+    ? form.defaultThemeId
+    : DEFAULT_THEME_ID;
 
   const loadAccounts = useCallback(async () => {
     setLoading(true);
@@ -52,11 +64,11 @@ export default function WeChatAccountSettings({ isDesktop }: WeChatAccountSettin
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
+      if (event.key === 'Escape') onOpenChange(false);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [open]);
+  }, [open, onOpenChange]);
 
   const resetForm = () => {
     setForm(EMPTY_FORM);
@@ -71,7 +83,9 @@ export default function WeChatAccountSettings({ isDesktop }: WeChatAccountSettin
       appId: account.appId,
       appSecret: '',
       defaultAuthor: account.defaultAuthor,
-      defaultThemeId: account.defaultThemeId,
+      defaultThemeId: THEMES.some((theme) => theme.id === account.defaultThemeId)
+        ? account.defaultThemeId
+        : DEFAULT_THEME_ID,
       defaultSourceUrl: account.defaultSourceUrl,
       defaultNeedOpenComment: account.defaultNeedOpenComment,
       defaultOnlyFansCanComment: account.defaultOnlyFansCanComment
@@ -103,7 +117,10 @@ export default function WeChatAccountSettings({ isDesktop }: WeChatAccountSettin
     setMessage('');
     setError('');
     try {
-      const saved = await workspaceClient.wechatAccounts.save(form);
+      const saved = await workspaceClient.wechatAccounts.save({
+        ...form,
+        defaultThemeId: selectedThemeId
+      });
       await loadAccounts();
       editAccount(saved);
       setMessage('公众号配置已保存。');
@@ -127,17 +144,18 @@ export default function WeChatAccountSettings({ isDesktop }: WeChatAccountSettin
 
   return (
     <>
-      <button
-        data-testid="wechat-settings-button"
-        type="button"
-        onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-black/10 px-3 py-2 text-xs font-medium hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10"
-      >
-        <MessageCircleMore size={14} />公众号
-      </button>
+      {showTrigger && (
+        <button
+          type="button"
+          onClick={() => onOpenChange(true)}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-black/10 px-3 py-2 text-xs font-medium hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10"
+        >
+          <MessageCircleMore size={14} />公众号
+        </button>
+      )}
 
       {open && createPortal(
-        <div role="presentation" onMouseDown={() => setOpen(false)} className="fixed inset-0 z-[330] flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
+        <div role="presentation" onMouseDown={() => onOpenChange(false)} className="fixed inset-0 z-[330] flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
           <div role="dialog" aria-modal="true" aria-labelledby="wechat-settings-title" onMouseDown={(event) => event.stopPropagation()} className="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-[#1c1c1e]">
             <div className="flex items-center justify-between border-b border-black/10 px-6 py-4 dark:border-white/10">
               <div>
@@ -146,7 +164,7 @@ export default function WeChatAccountSettings({ isDesktop }: WeChatAccountSettin
                   {isDesktop ? 'AppSecret 由 Electron safeStorage 加密，仅在主进程使用。' : '浏览器测试模式只保存 Mock 配置。'}
                 </p>
               </div>
-              <button type="button" onClick={() => setOpen(false)} className="rounded-full p-2 hover:bg-black/5 dark:hover:bg-white/10" aria-label="关闭公众号设置">
+              <button type="button" onClick={() => onOpenChange(false)} className="rounded-full p-2 hover:bg-black/5 dark:hover:bg-white/10" aria-label="关闭公众号设置">
                 <X size={20} />
               </button>
             </div>
@@ -199,7 +217,18 @@ export default function WeChatAccountSettings({ isDesktop }: WeChatAccountSettin
                     />
                   </div>
                   <Field label="默认作者" value={form.defaultAuthor || ''} onChange={(value) => update('defaultAuthor', value)} />
-                  <Field label="默认主题 ID" value={form.defaultThemeId || 'mac'} onChange={(value) => update('defaultThemeId', value)} />
+                  <label className="block text-sm font-medium text-black dark:text-white">
+                    默认主题
+                    <select
+                      value={selectedThemeId}
+                      onChange={(event) => update('defaultThemeId', event.target.value)}
+                      className="mt-2 w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0066cc] dark:border-white/10 dark:bg-black"
+                    >
+                      {THEMES.map((theme) => (
+                        <option key={theme.id} value={theme.id}>{theme.name}</option>
+                      ))}
+                    </select>
+                  </label>
                   <div className="sm:col-span-2">
                     <Field label="默认原文链接" value={form.defaultSourceUrl || ''} placeholder="https://..." onChange={(value) => update('defaultSourceUrl', value)} />
                   </div>

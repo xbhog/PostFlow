@@ -101,6 +101,7 @@ test('creates, saves and reopens a browser article', async ({ page }) => {
 
     await page.getByRole('button', { name: /文章列表/ }).click();
     await expect(page.getByText('PostFlow 本地文章测试')).toBeVisible();
+    await expect(page.getByTestId('library-publish-status')).toHaveText('未同步');
 
     await page.getByText('PostFlow 本地文章测试').click();
     await expect(titleInput).toHaveValue('PostFlow 本地文章测试');

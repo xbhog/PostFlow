@@ -6,6 +6,7 @@ import {
   RefreshCw,
   Trash2
 } from 'lucide-react';
+import { getLibraryPublishBadge, type LibraryPublishTone } from '../lib/lastPublish';
 import type { ArticleSummary } from '../types/article';
 
 interface ArticleLibraryProps {
@@ -30,6 +31,14 @@ function formatDate(value: string) {
     minute: '2-digit'
   }).format(new Date(value));
 }
+
+const BADGE_CLASS: Record<LibraryPublishTone, string> = {
+  neutral: 'bg-[#f5f5f7] text-[#6e6e73] dark:bg-[#242424] dark:text-[#a1a1a6]',
+  success: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
+  warning: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
+  error: 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300',
+  pending: 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300'
+};
 
 export default function ArticleLibrary({
   articles,
@@ -126,7 +135,9 @@ export default function ArticleLibrary({
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {articles.map((article) => (
+            {articles.map((article) => {
+              const badge = getLibraryPublishBadge(article.version, article.lastPublish);
+              return (
               <article
                 key={article.id}
                 className="group rounded-3xl border border-black/5 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-white/10 dark:bg-[#111111]"
@@ -140,9 +151,17 @@ export default function ArticleLibrary({
                     <div className="rounded-2xl bg-[#f5f5f7] p-3 text-black dark:bg-[#242424] dark:text-white">
                       <FileText size={22} />
                     </div>
-                    <span className="rounded-full bg-[#f5f5f7] px-2.5 py-1 text-xs text-[#6e6e73] dark:bg-[#242424] dark:text-[#a1a1a6]">
-                      V{article.version}
-                    </span>
+                    <div className="flex flex-col items-end gap-1.5">
+                      <span className="rounded-full bg-[#f5f5f7] px-2.5 py-1 text-xs text-[#6e6e73] dark:bg-[#242424] dark:text-[#a1a1a6]">
+                        V{article.version}
+                      </span>
+                      <span
+                        data-testid="library-publish-status"
+                        className={`rounded-full px-2.5 py-1 text-xs ${BADGE_CLASS[badge.tone]}`}
+                      >
+                        {badge.label}
+                      </span>
+                    </div>
                   </div>
                   <h2 className="line-clamp-2 min-h-12 text-base font-semibold leading-6 text-black dark:text-white">
                     {article.title || '未命名文章'}
@@ -170,7 +189,8 @@ export default function ArticleLibrary({
                   </button>
                 </div>
               </article>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

@@ -38,6 +38,31 @@ interface PublishButtonProps {
   assets: AssetRecord[];
   saveStatus: 'saved' | 'dirty' | 'saving' | 'error';
   isDesktop: boolean;
+  open: boolean;
+  onOpenChange(open: boolean): void;
+  showTrigger?: boolean;
+  triggerTestId?: string;
+}
+
+export function PublishTriggerButton({
+  onClick,
+  testId
+}: {
+  onClick(): void;
+  testId?: string;
+}) {
+  return (
+    <button
+      data-testid={testId}
+      type="button"
+      onClick={onClick}
+      className="apple-export-btn border-transparent !bg-[#07c160] !text-white hover:!bg-[#06ad56]"
+    >
+      <CloudUpload size={15} />
+      <span className="hidden sm:inline">同步草稿</span>
+      <span className="sm:hidden">发布</span>
+    </button>
+  );
 }
 
 const STEP_LABELS: Record<string, string> = {
@@ -105,9 +130,12 @@ export default function PublishButton({
   renderedHtml,
   assets,
   saveStatus,
-  isDesktop
+  isDesktop,
+  open,
+  onOpenChange,
+  showTrigger = false,
+  triggerTestId
 }: PublishButtonProps) {
-  const [open, setOpen] = useState(false);
   const [accounts, setAccounts] = useState<PublicWeChatAccount[]>([]);
   const [records, setRecords] = useState<PublishRecord[]>([]);
   const [accountId, setAccountId] = useState('');
@@ -175,11 +203,11 @@ export default function PublishButton({
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || publishing) return;
       if (confirmation) setConfirmation(null);
-      else setOpen(false);
+      else onOpenChange(false);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [open, publishing, confirmation]);
+  }, [open, publishing, confirmation, onOpenChange]);
 
   useEffect(() => {
     if (!successNotice) return;
@@ -323,16 +351,9 @@ export default function PublishButton({
 
   return (
     <>
-      <button
-        data-testid="publish-draft-button"
-        type="button"
-        onClick={() => setOpen(true)}
-        className="apple-export-btn border-transparent !bg-[#07c160] !text-white hover:!bg-[#06ad56]"
-      >
-        <CloudUpload size={15} />
-        <span className="hidden sm:inline">同步草稿</span>
-        <span className="sm:hidden">发布</span>
-      </button>
+      {showTrigger && (
+        <PublishTriggerButton testId={triggerTestId} onClick={() => onOpenChange(true)} />
+      )}
 
       {successNotice && (
         <NoticeToast
@@ -343,7 +364,7 @@ export default function PublishButton({
       )}
 
       {open && createPortal(
-        <div role="presentation" onMouseDown={() => !publishing && setOpen(false)} className="fixed inset-0 z-[340] flex items-center justify-center bg-[#101713]/55 p-3 backdrop-blur-md sm:p-5">
+        <div role="presentation" onMouseDown={() => !publishing && onOpenChange(false)} className="fixed inset-0 z-[340] flex items-center justify-center bg-[#101713]/55 p-3 backdrop-blur-md sm:p-5">
           <div role="dialog" aria-modal="true" aria-labelledby="publish-dialog-title" onMouseDown={(event) => event.stopPropagation()} className="relative flex max-h-[94vh] w-full max-w-6xl flex-col overflow-hidden rounded-[26px] border border-white/60 bg-[#f6f7f4] shadow-[0_30px_90px_rgba(5,20,12,0.35)] dark:border-white/10 dark:bg-[#171b18]">
             <header className="flex shrink-0 items-center justify-between border-b border-black/[0.07] bg-white/90 px-5 py-4 backdrop-blur-xl dark:border-white/10 dark:bg-[#1e231f]/90 sm:px-7">
               <div className="min-w-0">
@@ -356,7 +377,7 @@ export default function PublishButton({
                   {isDesktop ? '确认内容与封面后，由桌面端安全完成素材上传。' : '浏览器 Mock 模式不会调用真实公众号接口。'}
                 </p>
               </div>
-              <button type="button" onClick={() => setOpen(false)} className="ml-4 rounded-full border border-black/[0.06] bg-white p-2.5 text-[#57605a] shadow-sm transition hover:bg-[#f0f3f0] hover:text-black dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10" aria-label="关闭发布面板"><X size={19} /></button>
+              <button type="button" onClick={() => onOpenChange(false)} className="ml-4 rounded-full border border-black/[0.06] bg-white p-2.5 text-[#57605a] shadow-sm transition hover:bg-[#f0f3f0] hover:text-black dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10" aria-label="关闭发布面板"><X size={19} /></button>
             </header>
 
             <div className="grid min-h-0 flex-1 overflow-y-auto lg:grid-cols-[minmax(0,1fr)_320px] lg:overflow-hidden">
@@ -378,7 +399,7 @@ export default function PublishButton({
                           </select>
                           <ChevronDown size={17} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#737a75]" />
                         </label>
-                        {accounts.length === 0 && <div className="mt-3 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-300">尚未配置公众号，请关闭发布面板后点击编辑器底部“公众号”。</div>}
+                        {accounts.length === 0 && <div className="mt-3 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-300">尚未配置公众号，请关闭发布面板后点击顶栏“公众号”。</div>}
                       </div>
 
                       <div>
@@ -403,6 +424,14 @@ export default function PublishButton({
                               <span>本地提取，不会上传正文</span>
                               <span>{Array.from(digest).length}/120</span>
                             </div>
+                          </div>
+                          <div className="sm:col-span-2">
+                            <Field
+                              label="原文链接"
+                              value={sourceUrl}
+                              onChange={setSourceUrl}
+                              placeholder="https:// 可选，留空则不设置"
+                            />
                           </div>
                         </div>
                       </div>
@@ -536,6 +565,12 @@ export default function PublishButton({
                     <div>
                       <div className="text-xs font-medium text-[#8a918c]">文章标题</div>
                       <div className="mt-1.5 line-clamp-2 text-base font-semibold leading-6 text-[#202722] dark:text-white">{confirmation.input.title}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-medium text-[#8a918c]">原文链接</div>
+                      <div className="mt-1.5 break-all text-sm text-[#202722] dark:text-white">
+                        {confirmation.input.contentSourceUrl || '未填写'}
+                      </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="rounded-2xl bg-[#edf1ed] px-4 py-3 dark:bg-white/[0.06]">

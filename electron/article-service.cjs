@@ -1,6 +1,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const { DEFAULT_THEME_ID } = require('./theme-defaults.cjs');
 
 const ARTICLE_ID_PATTERN = /^[a-zA-Z0-9-]+$/;
 
@@ -23,6 +24,27 @@ async function writeTextAtomic(filePath, value) {
   const temporaryPath = `${filePath}.tmp`;
   await fs.writeFile(temporaryPath, value, 'utf8');
   await fs.rename(temporaryPath, filePath);
+}
+
+async function readLatestPublish(articleDirectory) {
+  try {
+    const raw = await fs.readFile(path.join(articleDirectory, 'publishes', 'index.json'), 'utf8');
+    const parsed = JSON.parse(raw);
+    const records = Array.isArray(parsed.records) ? parsed.records : [];
+    const record = [...records].sort((left, right) => String(right.createdAt || '').localeCompare(String(left.createdAt || '')))[0];
+    if (!record) return undefined;
+    return {
+      status: record.status,
+      articleVersion: record.articleVersion,
+      updatedAt: record.updatedAt,
+      accountId: record.accountId
+    };
+  } catch (error) {
+    if (error && error.code !== 'ENOENT') {
+      console.warn(`Unable to read publish records in ${articleDirectory}:`, error);
+    }
+    return undefined;
+  }
 }
 
 class ArticleService {
@@ -97,20 +119,20 @@ class ArticleService {
     await this.ensureWorkspace();
     const articlesRoot = path.join(this.workspacePath, 'articles');
     const directoryEntries = await fs.readdir(articlesRoot, { withFileTypes: true });
-    const articles = [];
-
-    for (const entry of directoryEntries) {
-      if (!entry.isDirectory() || !ARTICLE_ID_PATTERN.test(entry.name)) continue;
+    const articles = (await Promise.all(directoryEntries.map(async (entry) => {
+      if (!entry.isDirectory() || !ARTICLE_ID_PATTERN.test(entry.name)) return null;
 
       try {
-        const metadataPath = path.join(articlesRoot, entry.name, 'metadata.json');
-        const rawMetadata = await fs.readFile(metadataPath, 'utf8');
+        const articleDirectory = path.join(articlesRoot, entry.name);
+        const rawMetadata = await fs.readFile(path.join(articleDirectory, 'metadata.json'), 'utf8');
         const metadata = JSON.parse(rawMetadata);
-        articles.push(metadata);
+        const lastPublish = await readLatestPublish(articleDirectory);
+        return lastPublish ? { ...metadata, lastPublish } : metadata;
       } catch (error) {
         console.warn(`Skipping unreadable article ${entry.name}:`, error);
+        return null;
       }
-    }
+    }))).filter(Boolean);
 
     return articles.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
   }
@@ -134,7 +156,7 @@ class ArticleService {
     const metadata = {
       id,
       title,
-      themeId: typeof input.themeId === 'string' ? input.themeId : 'mac',
+      themeId: typeof input.themeId === 'string' ? input.themeId : DEFAULT_THEME_ID,
       version: 1,
       createdAt: now,
       updatedAt: now

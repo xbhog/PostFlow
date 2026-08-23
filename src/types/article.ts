@@ -1,5 +1,12 @@
 import type { AssetBridge } from './assets';
-import type { WeChatBridge } from './wechat';
+import type { PublishStatus, WeChatBridge } from './wechat';
+
+export interface ArticleLastPublish {
+  status: PublishStatus;
+  articleVersion: number;
+  updatedAt: string;
+  accountId?: string;
+}
 
 export interface ArticleSummary {
   id: string;
@@ -8,6 +15,7 @@ export interface ArticleSummary {
   version: number;
   createdAt: string;
   updatedAt: string;
+  lastPublish?: ArticleLastPublish;
 }
 
 export interface ArticleDocument extends ArticleSummary {

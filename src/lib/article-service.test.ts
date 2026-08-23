@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRequire } from 'node:module';
@@ -53,5 +53,43 @@ describe('PostFlow 默认工作区', () => {
     await service.initialize();
 
     expect(await service.getWorkspacePath()).toBe(legacyWorkspace);
+  });
+
+  it('lists the latest publish status without writing it into metadata', async () => {
+    const { app } = await createMockApp();
+    const service = new ArticleService(app);
+    await service.initialize();
+    const article = await service.createArticle({ title: '同步状态' });
+    expect(article.themeId).toBe('apple');
+
+    await mkdir(join(service.getArticleDirectory(article.id), 'publishes'), { recursive: true });
+    await writeFile(join(service.getArticleDirectory(article.id), 'publishes', 'index.json'), JSON.stringify({
+      version: 1,
+      records: [
+        {
+          id: 'older',
+          articleId: article.id,
+          articleVersion: 1,
+          status: 'failed',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z'
+        },
+        {
+          id: 'latest',
+          articleId: article.id,
+          articleVersion: 1,
+          status: 'success',
+          createdAt: '2026-02-01T00:00:00.000Z',
+          updatedAt: '2026-02-01T00:00:00.000Z'
+        }
+      ]
+    }), 'utf8');
+
+    const listed = await service.listArticles();
+    expect(listed[0].lastPublish).toMatchObject({
+      status: 'success',
+      articleVersion: 1
+    });
+    expect(JSON.parse(await readFile(join(service.getArticleDirectory(article.id), 'metadata.json'), 'utf8'))).not.toHaveProperty('lastPublish');
   });
 });

@@ -6,6 +6,13 @@ async function createArticle(page: import('@playwright/test').Page) {
   await expect(page.getByTestId('editor-input')).toBeVisible();
 }
 
+test('opens WeChat settings from the library without creating an article', async ({ page }) => {
+  await page.goto('/');
+  await page.getByTestId('wechat-settings-button').click();
+  await expect(page.getByRole('dialog', { name: '微信公众号' })).toBeVisible();
+  await expect(page.getByLabel('默认主题')).toBeVisible();
+});
+
 test('saves and reopens a browser mock WeChat account without storing the secret', async ({ page }) => {
   await createArticle(page);
   await page.getByTestId('wechat-settings-button').click();

@@ -20,6 +20,8 @@ import type {
   PublishStep,
   SaveWeChatAccountInput
 } from '../types/wechat';
+import { pickLastPublish } from './lastPublish';
+import { DEFAULT_THEME_ID } from './themes';
 
 type PendingRecordInput = Pick<PublishRecord, 'articleId' | 'articleVersion' | 'target' | 'accountId'>;
 
@@ -112,7 +114,8 @@ function toSummary(article: ArticleDocument): ArticleSummary {
     themeId: article.themeId,
     version: article.version,
     createdAt: article.createdAt,
-    updatedAt: article.updatedAt
+    updatedAt: article.updatedAt,
+    lastPublish: pickLastPublish(readPublishRecords()[article.id] || [])
   };
 }
 
@@ -343,7 +346,7 @@ export function createBrowserBridge(): WorkspaceBridge {
           id: `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`,
           title,
           markdown: input.markdown ?? `# ${title}\n\n开始写作吧。\n`,
-          themeId: input.themeId || 'mac',
+          themeId: input.themeId || DEFAULT_THEME_ID,
           version: 1,
           createdAt: now,
           updatedAt: now
@@ -484,7 +487,7 @@ export function createBrowserBridge(): WorkspaceBridge {
           appIdMasked: `${appId.slice(0, 6)}••••${appId.slice(-4)}`,
           hasAppSecret: true,
           defaultAuthor: input.defaultAuthor?.trim() || '',
-          defaultThemeId: input.defaultThemeId || 'mac',
+          defaultThemeId: input.defaultThemeId || DEFAULT_THEME_ID,
           defaultSourceUrl: input.defaultSourceUrl?.trim() || '',
           defaultNeedOpenComment: Boolean(input.defaultNeedOpenComment),
           defaultOnlyFansCanComment: Boolean(input.defaultOnlyFansCanComment),

@@ -4,7 +4,7 @@ import html2pdf from 'html2pdf.js';
 import { md, preprocessMarkdown, applyTheme } from './lib/markdown';
 import { markElementIndexes } from './lib/markdownIndexer';
 import { makeWeChatCompatible, cleanInternalAttributes } from './lib/wechatCompat';
-import { THEMES } from './lib/themes';
+import { DEFAULT_THEME_ID, THEMES } from './lib/themes';
 import { findImagePosition, selectTextAreaRange } from './lib/imageSelector';
 import { findElementPosition, type ElementLocation } from './lib/markdownLocator';
 import { insertAtSelection } from './lib/htmlToMarkdown';
@@ -33,6 +33,8 @@ import ArticleEditorBar, { type SaveStatus } from './components/ArticleEditorBar
 import StorageSettings from './components/StorageSettings';
 import AssetUploadQueue from './components/AssetUploadQueue';
 import NoticeToast from './components/NoticeToast';
+import WeChatAccountSettings from './components/WeChatAccountSettings';
+import PublishButton, { PublishTriggerButton } from './components/PublishButton';
 
 const EMPTY_STORAGE_CONFIG: PublicStorageConfig = {
     configured: false,
@@ -50,14 +52,15 @@ const EMPTY_STORAGE_CONFIG: PublicStorageConfig = {
     hasSecretAccessKey: false
 };
 
-function toArticleSummary(article: ArticleDocument): ArticleSummary {
+function toArticleSummary(article: ArticleDocument, previous?: ArticleSummary): ArticleSummary {
     return {
         id: article.id,
         title: article.title,
         themeId: article.themeId,
         version: article.version,
         createdAt: article.createdAt,
-        updatedAt: article.updatedAt
+        updatedAt: article.updatedAt,
+        lastPublish: article.lastPublish ?? previous?.lastPublish
     };
 }
 
@@ -95,6 +98,8 @@ export default function App() {
 
     const [storageConfig, setStorageConfig] = useState<PublicStorageConfig>(EMPTY_STORAGE_CONFIG);
     const [storageSettingsOpen, setStorageSettingsOpen] = useState(false);
+    const [wechatSettingsOpen, setWechatSettingsOpen] = useState(false);
+    const [publishOpen, setPublishOpen] = useState(false);
     const [assetQueueOpen, setAssetQueueOpen] = useState(false);
     const [assets, setAssets] = useState<AssetRecord[]>([]);
     const [notice, setNotice] = useState<{ message: string; tone: 'success' | 'error' } | null>(null);
@@ -213,7 +218,7 @@ export default function App() {
     const handleCreateArticle = async () => {
         setWorkspaceError('');
         try {
-            const article = await workspaceClient.articles.create({ themeId: THEMES[0].id });
+            const article = await workspaceClient.articles.create({ themeId: DEFAULT_THEME_ID });
             setArticles((current) => [toArticleSummary(article), ...current]);
             await enterArticle(article);
         } catch (error) {
@@ -249,8 +254,9 @@ export default function App() {
             lastSavedSnapshotRef.current = createSnapshot(savedArticle.title, savedArticle.markdown, savedArticle.themeId);
             setActiveArticle(savedArticle);
             setArticles((current) => {
+                const previous = current.find((article) => article.id === savedArticle.id);
                 const remaining = current.filter((article) => article.id !== savedArticle.id);
-                return [toArticleSummary(savedArticle), ...remaining]
+                return [toArticleSummary(savedArticle, previous), ...remaining]
                     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
             });
             setSaveStatus('saved');
@@ -298,6 +304,7 @@ export default function App() {
         if (!(await persistActiveArticle())) return;
         setActiveArticle(null);
         setAssets([]);
+        setPublishOpen(false);
         setViewMode('library');
         await loadLibrary();
     };
@@ -610,7 +617,12 @@ export default function App() {
     if (viewMode === 'library') {
         return (
             <div className="flex h-screen flex-col overflow-hidden bg-[#fbfbfd] antialiased transition-colors duration-300 dark:bg-black">
-                <Header themeMode={themeMode} onToggleTheme={toggleTheme} />
+                <Header
+                    themeMode={themeMode}
+                    onToggleTheme={toggleTheme}
+                    onOpenStorageSettings={() => setStorageSettingsOpen(true)}
+                    onOpenWeChatSettings={() => setWechatSettingsOpen(true)}
+                />
                 <ArticleLibrary
                     articles={articles}
                     workspacePath={workspacePath}
@@ -632,6 +644,11 @@ export default function App() {
                     onSave={handleSaveStorageConfig}
                     onTest={handleTestStorageConfig}
                 />
+                <WeChatAccountSettings
+                    isDesktop={workspaceClient.isDesktop}
+                    open={wechatSettingsOpen}
+                    onOpenChange={setWechatSettingsOpen}
+                />
                 {noticeToast}
             </div>
         );
@@ -639,7 +656,12 @@ export default function App() {
 
     return (
         <div className="flex h-screen flex-col overflow-hidden bg-[#fbfbfd] antialiased transition-colors duration-300 dark:bg-black">
-            <Header themeMode={themeMode} onToggleTheme={toggleTheme} />
+            <Header
+                themeMode={themeMode}
+                onToggleTheme={toggleTheme}
+                onOpenStorageSettings={() => setStorageSettingsOpen(true)}
+                onOpenWeChatSettings={() => setWechatSettingsOpen(true)}
+            />
             <ArticleEditorBar
                 title={articleTitle}
                 saveStatus={saveStatus}
@@ -659,14 +681,14 @@ export default function App() {
 
             <div className={`glass-toolbar z-[90] hidden grid-cols-1 px-0 transition-all duration-500 md:grid ${gridLayoutClass()}`}>
                 <ThemeSelector activeTheme={activeTheme} onThemeChange={setActiveTheme} />
-                <Toolbar previewDevice={previewDevice} onDeviceChange={setPreviewDevice} onExportPdf={handleExportPdf} onExportHtml={handleExportHtml} onCopy={handleCopy} copied={copied} isCopying={isCopying} scrollSyncEnabled={scrollSyncEnabled} onToggleScrollSync={() => setScrollSyncEnabled((previous) => !previous)} />
+                <Toolbar previewDevice={previewDevice} onDeviceChange={setPreviewDevice} onExportPdf={handleExportPdf} onExportHtml={handleExportHtml} onCopy={handleCopy} copied={copied} isCopying={isCopying} scrollSyncEnabled={scrollSyncEnabled} onToggleScrollSync={() => setScrollSyncEnabled((previous) => !previous)} publishAction={<PublishTriggerButton onClick={() => setPublishOpen(true)} />} />
             </div>
 
             <div className="glass-toolbar z-[90] md:hidden">
                 <div className="no-scrollbar overflow-x-auto border-b border-[#00000010] dark:border-[#ffffff10]">
                     <ThemeSelector activeTheme={activeTheme} onThemeChange={setActiveTheme} />
                 </div>
-                <Toolbar previewDevice={previewDevice} onDeviceChange={setPreviewDevice} onExportPdf={handleExportPdf} onExportHtml={handleExportHtml} onCopy={handleCopy} copied={copied} isCopying={isCopying} scrollSyncEnabled={scrollSyncEnabled} onToggleScrollSync={() => setScrollSyncEnabled((previous) => !previous)} />
+                <Toolbar previewDevice={previewDevice} onDeviceChange={setPreviewDevice} onExportPdf={handleExportPdf} onExportHtml={handleExportHtml} onCopy={handleCopy} copied={copied} isCopying={isCopying} scrollSyncEnabled={scrollSyncEnabled} onToggleScrollSync={() => setScrollSyncEnabled((previous) => !previous)} publishAction={<PublishTriggerButton onClick={() => setPublishOpen(true)} />} />
             </div>
 
             <main className={`relative grid flex-1 grid-cols-1 overflow-hidden transition-all duration-500 ${gridLayoutClass()}`}>
@@ -679,12 +701,13 @@ export default function App() {
                         scrollSyncEnabled={scrollSyncEnabled}
                         onImageFiles={handleImageFiles}
                         onOpenStorageSettings={() => setStorageSettingsOpen(true)}
+                        onOpenWeChatSettings={() => setWechatSettingsOpen(true)}
                         onOpenAssetQueue={() => setAssetQueueOpen(true)}
+                        publishAction={<PublishTriggerButton testId="publish-draft-button" onClick={() => setPublishOpen(true)} />}
                         assetCount={assets.length}
                         failedAssetCount={failedAssetCount}
                         activeAssetCount={activeAssetCount}
                         isDesktop={workspaceClient.isDesktop}
-                        saveStatus={saveStatus}
                     />
                 </div>
                 <div className={`${activePanel === 'preview' ? 'flex' : 'hidden'} flex-col overflow-hidden md:flex`}>
@@ -693,6 +716,24 @@ export default function App() {
             </main>
 
             <StorageSettings open={storageSettingsOpen} isDesktop={workspaceClient.isDesktop} config={storageConfig} onClose={() => setStorageSettingsOpen(false)} onSave={handleSaveStorageConfig} onTest={handleTestStorageConfig} />
+            <WeChatAccountSettings
+                isDesktop={workspaceClient.isDesktop}
+                open={wechatSettingsOpen}
+                onOpenChange={setWechatSettingsOpen}
+            />
+            {activeArticle && (
+                <PublishButton
+                    article={{ ...activeArticle, title: articleTitle, markdown: markdownInput, themeId: activeTheme }}
+                    title={articleTitle}
+                    themeId={activeTheme}
+                    renderedHtml={renderedHtml}
+                    assets={assets}
+                    saveStatus={saveStatus}
+                    isDesktop={workspaceClient.isDesktop}
+                    open={publishOpen}
+                    onOpenChange={setPublishOpen}
+                />
+            )}
             <AssetUploadQueue open={assetQueueOpen} assets={assets} onClose={() => setAssetQueueOpen(false)} onRetry={(assetId) => void handleRetryAsset(assetId)} onRetryAll={() => void handleRetryAllAssets()} onReveal={(assetId) => void handleRevealAsset(assetId)} />
             {noticeToast}
         </div>

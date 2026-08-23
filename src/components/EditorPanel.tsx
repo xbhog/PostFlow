@@ -1,10 +1,8 @@
-import React, { useRef } from 'react';
-import { AlertCircle, ImagePlus, Images, Loader2, Settings2, Wand2 } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { useRef } from 'react';
+import { AlertCircle, ImagePlus, Images, Loader2, MessageCircleMore, Settings2, Wand2 } from 'lucide-react';
 import { handleSmartPaste } from '../lib/htmlToMarkdown';
 import type { AssetSourceType } from '../types/assets';
-import SessionPublishButton from './SessionPublishButton';
-import WeChatAccountSettings from './WeChatAccountSettings';
-import type { SaveStatus } from './ArticleEditorBar';
 
 interface EditorPanelProps {
     markdownInput: string;
@@ -14,12 +12,13 @@ interface EditorPanelProps {
     scrollSyncEnabled: boolean;
     onImageFiles(files: File[], textarea: HTMLTextAreaElement, sourceType: AssetSourceType): void | Promise<void>;
     onOpenStorageSettings(): void;
+    onOpenWeChatSettings(): void;
     onOpenAssetQueue(): void;
+    publishAction?: ReactNode;
     assetCount: number;
     failedAssetCount: number;
     activeAssetCount: number;
     isDesktop: boolean;
-    saveStatus: SaveStatus;
 }
 
 export default function EditorPanel({
@@ -30,12 +29,13 @@ export default function EditorPanel({
     scrollSyncEnabled,
     onImageFiles,
     onOpenStorageSettings,
+    onOpenWeChatSettings,
     onOpenAssetQueue,
+    publishAction,
     assetCount,
     failedAssetCount,
     activeAssetCount,
-    isDesktop,
-    saveStatus
+    isDesktop
 }: EditorPanelProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -60,11 +60,11 @@ export default function EditorPanel({
     };
 
     return (
-        <div className="border-r border-[#00000015] dark:border-[#ffffff15] flex flex-col relative z-30 bg-transparent flex-1 min-h-0">
+        <div className="relative z-30 flex min-h-0 flex-1 flex-col border-r border-[#00000015] bg-transparent dark:border-[#ffffff15]">
             <textarea
                 ref={editorScrollRef}
                 data-testid="editor-input"
-                className="w-full flex-1 p-8 md:p-10 resize-none bg-transparent outline-none font-mono text-[15px] md:text-[16px] leading-[1.8] no-scrollbar text-[#1d1d1f] dark:text-[#f5f5f7] placeholder-[#86868b] dark:placeholder-[#6e6e73]"
+                className="no-scrollbar w-full flex-1 resize-none bg-transparent p-8 font-mono text-[15px] leading-[1.8] text-[#1d1d1f] outline-none placeholder-[#86868b] dark:text-[#f5f5f7] dark:placeholder-[#6e6e73] md:p-10 md:text-[16px]"
                 value={markdownInput}
                 onChange={(event) => onInputChange(event.target.value)}
                 onPaste={onPaste}
@@ -127,11 +127,13 @@ export default function EditorPanel({
                             <span className="text-[#86868b] dark:text-[#a1a1a6]">{assetCount}</span>
                         )}
                     </button>
-                    <button data-testid="storage-settings-button" type="button" onClick={onOpenStorageSettings} className="inline-flex items-center gap-1.5 rounded-lg border border-black/10 px-3 py-2 text-xs font-medium hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10">
+                    <button type="button" onClick={onOpenStorageSettings} className="inline-flex items-center gap-1.5 rounded-lg border border-black/10 px-3 py-2 text-xs font-medium hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10">
                         <Settings2 size={14} />图片存储
                     </button>
-                    <WeChatAccountSettings isDesktop={isDesktop} />
-                    <SessionPublishButton isDesktop={isDesktop} saveStatus={saveStatus} />
+                    <button type="button" onClick={onOpenWeChatSettings} className="inline-flex items-center gap-1.5 rounded-lg border border-black/10 px-3 py-2 text-xs font-medium hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10">
+                        <MessageCircleMore size={14} />公众号
+                    </button>
+                    {publishAction}
                 </div>
             </div>
         </div>

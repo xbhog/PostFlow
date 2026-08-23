@@ -2,6 +2,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { safeStorage } = require('electron');
+const { DEFAULT_THEME_ID } = require('./theme-defaults.cjs');
 
 const ACCOUNT_ID_PATTERN = /^[a-zA-Z0-9-]+$/;
 
@@ -89,7 +90,7 @@ class WeChatAccountService {
     const appSecret = String(input?.appSecret || '').trim()
       || (existing?.encryptedAppSecret ? this.decryptValue(existing.encryptedAppSecret) : '');
     const defaultAuthor = String(input?.defaultAuthor ?? existing?.defaultAuthor ?? '').trim();
-    const defaultThemeId = String(input?.defaultThemeId ?? existing?.defaultThemeId ?? 'mac').trim() || 'mac';
+    const defaultThemeId = String(input?.defaultThemeId ?? existing?.defaultThemeId ?? DEFAULT_THEME_ID).trim() || DEFAULT_THEME_ID;
     const defaultSourceUrl = String(input?.defaultSourceUrl ?? existing?.defaultSourceUrl ?? '').trim();
     const defaultNeedOpenComment = Boolean(input?.defaultNeedOpenComment ?? existing?.defaultNeedOpenComment ?? false);
     const defaultOnlyFansCanComment = Boolean(input?.defaultOnlyFansCanComment ?? existing?.defaultOnlyFansCanComment ?? false);
@@ -124,7 +125,7 @@ class WeChatAccountService {
       appIdMasked: maskAppId(account.appId),
       hasAppSecret: Boolean(account.encryptedAppSecret),
       defaultAuthor: account.defaultAuthor || '',
-      defaultThemeId: account.defaultThemeId || 'mac',
+      defaultThemeId: account.defaultThemeId || DEFAULT_THEME_ID,
       defaultSourceUrl: account.defaultSourceUrl || '',
       defaultNeedOpenComment: Boolean(account.defaultNeedOpenComment),
       defaultOnlyFansCanComment: Boolean(account.defaultOnlyFansCanComment),

@@ -35,6 +35,7 @@ async function addMockAccount(page: import('@playwright/test').Page) {
   await page.getByLabel('AppID').fill('wxmock1234567890');
   await page.getByLabel('AppSecret').fill('mock-secret');
   await page.getByLabel('默认作者').fill('PostFlow');
+  await page.getByLabel('默认原文链接').fill('https://example.com/source');
   await page.getByRole('button', { name: '保存配置' }).click();
   await expect(page.getByText('公众号配置已保存。')).toBeVisible();
   await page.getByRole('button', { name: '关闭公众号设置' }).click();
@@ -56,7 +57,8 @@ test('creates a browser mock draft and marks it outdated after local edits', asy
   const modal = getPublishModal(page);
   await expect(modal).toBeVisible();
   await expect(page.getByTestId('publish-account')).toHaveValue(/.+/);
-  await expect(modal.getByText('原文链接')).toHaveCount(0);
+  await expect(modal.getByLabel('原文链接')).toHaveValue('https://example.com/source');
+  await modal.getByLabel('原文链接').fill('https://example.com/changed');
   await page.getByTestId('generate-publish-digest').click();
   await expect(page.getByTestId('publish-digest')).not.toHaveValue('');
   await modal.getByLabel('开启评论').check();
@@ -67,6 +69,7 @@ test('creates a browser mock draft and marks it outdated after local edits', asy
   const confirmation = page.getByTestId('publish-confirmation');
   await expect(confirmation).toBeVisible();
   await expect(confirmation).toContainText('PostFlow Mock 公众号');
+  await expect(confirmation).toContainText('https://example.com/changed');
   await expect(confirmation).toContainText('正文图片');
   await page.getByTestId('approve-publish-draft').click();
   await expect(page.getByTestId('publish-progress')).toBeVisible();
@@ -81,6 +84,9 @@ test('creates a browser mock draft and marks it outdated after local edits', asy
 
   await page.getByTestId('publish-draft-button').click();
   await expect(getPublishModal(page).getByText('公众号草稿不是最新版本')).toBeVisible();
+  await page.getByRole('button', { name: '关闭发布面板' }).click();
+  await page.getByRole('button', { name: /文章列表/ }).click();
+  await expect(page.getByTestId('library-publish-status')).toHaveText('草稿过期');
 });
 
 test('shows a browser mock draft failure without losing the article', async ({ page }) => {

@@ -8,6 +8,19 @@
     }
 }
 
+.library-canvas {
+    background:
+        radial-gradient(1200px 520px at 12% -10%, rgba(255, 248, 236, 0.9), transparent 58%),
+        radial-gradient(900px 420px at 100% 0%, rgba(232, 236, 230, 0.7), transparent 52%),
+        #f4f1ea;
+}
+
+.dark .library-canvas {
+    background:
+        radial-gradient(1000px 480px at 10% -8%, rgba(48, 48, 42, 0.45), transparent 55%),
+        #050505;
+}
+
 @layer utilities {
     .glass {
         @apply bg-white/60 dark:bg-[#1c1c1e]/60 backdrop-blur-[40px] saturate-[1.8] border-b border-[#00000015] dark:border-[#ffffff15];

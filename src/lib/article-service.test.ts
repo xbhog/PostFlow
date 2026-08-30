@@ -60,7 +60,7 @@ describe('PostFlow 默认工作区', () => {
     const service = new ArticleService(app);
     await service.initialize();
     const article = await service.createArticle({ title: '同步状态' });
-    expect(article.themeId).toBe('apple');
+    expect(article.themeId).toBe('claude');
 
     await mkdir(join(service.getArticleDirectory(article.id), 'publishes'), { recursive: true });
     await writeFile(join(service.getArticleDirectory(article.id), 'publishes', 'index.json'), JSON.stringify({

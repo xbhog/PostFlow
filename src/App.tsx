@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Eye, PenLine } from 'lucide-react';
-import html2pdf from 'html2pdf.js';
 import { md, preprocessMarkdown, applyTheme } from './lib/markdown';
 import { markElementIndexes } from './lib/markdownIndexer';
-import { makeWeChatCompatible, cleanInternalAttributes } from './lib/wechatCompat';
-import { THEMES } from './lib/themes';
+import { DEFAULT_THEME_ID, THEMES } from './lib/themes';
 import { findElementPosition } from './lib/markdownLocator';
 import { workspaceClient } from './lib/workspace';
-import { containsAssetPlaceholder, replaceAssetPlaceholder } from './features/assets/asset-placeholder';
+import { replaceAssetPlaceholder } from './features/assets/asset-placeholder';
 import type { EditorHandle } from './lib/editorHandle';
 import type { ArticleDocument } from './types/article';
 import type { SaveStorageConfigInput, StorageConnectionResult } from './types/assets';
@@ -36,9 +34,7 @@ export default function App() {
     const [articleTitle, setArticleTitle] = useState('');
     const [markdownInput, setMarkdownInput] = useState('');
     const [renderedHtml, setRenderedHtml] = useState('');
-    const [activeTheme, setActiveTheme] = useState(THEMES[0].id);
-    const [copied, setCopied] = useState(false);
-    const [isCopying, setIsCopying] = useState(false);
+    const [activeTheme, setActiveTheme] = useState(DEFAULT_THEME_ID);
     const [previewDevice, setPreviewDevice] = useState<'mobile' | 'tablet' | 'pc'>('pc');
     const [activePanel, setActivePanel] = useState<'editor' | 'preview'>('editor');
     const [scrollSyncEnabled, setScrollSyncEnabled] = useState(true);
@@ -112,7 +108,7 @@ export default function App() {
     const enterArticle = useCallback(async (article: ArticleDocument) => {
         const nextTheme = THEMES.some((theme) => theme.id === article.themeId)
             ? article.themeId
-            : THEMES[0].id;
+            : DEFAULT_THEME_ID;
         const articleAssets = await loadAssets(article.id);
         let resolvedMarkdown = article.markdown;
         articleAssets.forEach((asset) => {
@@ -179,66 +175,6 @@ export default function App() {
         setRenderedHtml(markElementIndexes(applyTheme(rawHtml, activeTheme)));
     }, [markdownInput, activeTheme]);
 
-    const ensureAssetsReady = () => {
-        if (!containsAssetPlaceholder(markdownInput)) return true;
-        setAssetQueueOpen(true);
-        alert('文章中仍有未完成或失败的图片，请处理后再继续。');
-        return false;
-    };
-
-    const handleCopy = async () => {
-        if (!previewRef.current || !ensureAssetsReady()) return;
-        setIsCopying(true);
-        try {
-            const finalHtmlForCopy = await makeWeChatCompatible(renderedHtml, activeTheme);
-            await navigator.clipboard.write([new ClipboardItem({
-                'text/html': new Blob([finalHtmlForCopy], { type: 'text/html' }),
-                'text/plain': new Blob([previewRef.current.innerText], { type: 'text/plain' })
-            })]);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-        } catch (error) {
-            console.error('Copy failed', error);
-            alert('复制格式失败，请检查剪贴板权限');
-        } finally {
-            setIsCopying(false);
-        }
-    };
-
-    const handleExportHtml = () => {
-        if (!ensureAssetsReady()) return;
-        const blob = new Blob([cleanInternalAttributes(renderedHtml)], { type: 'text/html;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const anchor = document.createElement('a');
-        anchor.href = url;
-        anchor.download = `PostFlow_Article_${Date.now()}.html`;
-        anchor.click();
-        URL.revokeObjectURL(url);
-    };
-
-    const handleExportPdf = () => {
-        if (!previewRef.current || !ensureAssetsReady()) return;
-        const clonedElement = previewRef.current.cloneNode(true) as HTMLElement;
-        clonedElement.querySelectorAll('*').forEach((child) => {
-            child.removeAttribute('data-md-type');
-            child.removeAttribute('data-md-index');
-        });
-        const cloneContainer = document.createElement('div');
-        cloneContainer.style.background = document.documentElement.classList.contains('dark') ? '#000000' : '#ffffff';
-        cloneContainer.appendChild(clonedElement);
-        document.body.appendChild(cloneContainer);
-        const cleanup = () => {
-            if (cloneContainer.isConnected) document.body.removeChild(cloneContainer);
-        };
-        html2pdf().set({
-            margin: 10,
-            filename: `PostFlow_Article_${Date.now()}.pdf`,
-            image: { type: 'jpeg' as const, quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true, letterRendering: true },
-            jsPDF: { unit: 'mm' as const, format: 'a4', orientation: 'portrait' as const }
-        }).from(cloneContainer).save().then(cleanup, cleanup);
-    };
-
     const handleImageClick = useCallback((info: {
         type: string;
         index: number;
@@ -300,7 +236,7 @@ export default function App() {
 
     if (viewMode === 'library') {
         return (
-            <div className="flex h-screen flex-col overflow-hidden bg-[#fbfbfd] antialiased transition-colors duration-300 dark:bg-black">
+            <div className="flex h-screen flex-col overflow-hidden bg-[#f4f1ea] antialiased transition-colors duration-300 dark:bg-black">
                 <Header
                     themeMode={themeMode}
                     onToggleTheme={toggleTheme}
@@ -353,14 +289,14 @@ export default function App() {
 
             <div className={`glass-toolbar z-[90] hidden grid-cols-1 px-0 transition-all duration-500 md:grid ${gridLayoutClass()}`}>
                 <ThemeSelector activeTheme={activeTheme} onThemeChange={setActiveTheme} />
-                <Toolbar previewDevice={previewDevice} onDeviceChange={setPreviewDevice} onExportPdf={handleExportPdf} onExportHtml={handleExportHtml} onCopy={handleCopy} copied={copied} isCopying={isCopying} scrollSyncEnabled={scrollSyncEnabled} onToggleScrollSync={() => setScrollSyncEnabled((previous) => !previous)} publishAction={<PublishTriggerButton testId="publish-draft-button" onClick={() => setPublishOpen(true)} />} />
+                <Toolbar previewDevice={previewDevice} onDeviceChange={setPreviewDevice} scrollSyncEnabled={scrollSyncEnabled} onToggleScrollSync={() => setScrollSyncEnabled((previous) => !previous)} publishAction={<PublishTriggerButton testId="publish-draft-button" onClick={() => setPublishOpen(true)} />} />
             </div>
 
             <div className="glass-toolbar z-[90] md:hidden">
                 <div className="no-scrollbar overflow-x-auto border-b border-[#00000010] dark:border-[#ffffff10]">
                     <ThemeSelector activeTheme={activeTheme} onThemeChange={setActiveTheme} />
                 </div>
-                <Toolbar previewDevice={previewDevice} onDeviceChange={setPreviewDevice} onExportPdf={handleExportPdf} onExportHtml={handleExportHtml} onCopy={handleCopy} copied={copied} isCopying={isCopying} scrollSyncEnabled={scrollSyncEnabled} onToggleScrollSync={() => setScrollSyncEnabled((previous) => !previous)} publishAction={<PublishTriggerButton testId="publish-draft-button" onClick={() => setPublishOpen(true)} />} />
+                <Toolbar previewDevice={previewDevice} onDeviceChange={setPreviewDevice} scrollSyncEnabled={scrollSyncEnabled} onToggleScrollSync={() => setScrollSyncEnabled((previous) => !previous)} publishAction={<PublishTriggerButton testId="publish-draft-button" onClick={() => setPublishOpen(true)} />} />
             </div>
 
             <main className={`relative grid flex-1 grid-cols-1 overflow-hidden transition-all duration-500 ${gridLayoutClass()}`}>

@@ -1,3 +1,3 @@
 module.exports = {
-  DEFAULT_THEME_ID: 'apple'
+  DEFAULT_THEME_ID: 'claude'
 };

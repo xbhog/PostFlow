@@ -1,15 +1,10 @@
 import type { ReactNode } from 'react';
-import { Copy, CheckCircle2, Download, Smartphone, Tablet, Monitor, Loader2, Link2, Unlink2 } from 'lucide-react';
+import { Smartphone, Tablet, Monitor, Link2, Unlink2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface ToolbarProps {
     previewDevice: 'mobile' | 'tablet' | 'pc';
     onDeviceChange: (device: 'mobile' | 'tablet' | 'pc') => void;
-    onExportPdf: () => void;
-    onExportHtml: () => void;
-    onCopy: () => void;
-    copied: boolean;
-    isCopying: boolean;
     scrollSyncEnabled: boolean;
     onToggleScrollSync: () => void;
     publishAction?: ReactNode;
@@ -18,11 +13,6 @@ interface ToolbarProps {
 export default function Toolbar({
     previewDevice,
     onDeviceChange,
-    onExportPdf,
-    onExportHtml,
-    onCopy,
-    copied,
-    isCopying,
     scrollSyncEnabled,
     onToggleScrollSync,
     publishAction
@@ -68,41 +58,6 @@ export default function Toolbar({
                     {scrollSyncEnabled ? <Link2 size={14} /> : <Unlink2 size={14} />}
                     <span className="hidden sm:inline">{scrollSyncEnabled ? '滚动同步开' : '滚动同步关'}</span>
                     <span className="sm:hidden">{scrollSyncEnabled ? '同步开' : '同步关'}</span>
-                </motion.button>
-
-                <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.96 }}
-                    data-testid="export-pdf"
-                    onClick={onExportPdf}
-                    className="apple-export-btn !hidden sm:!flex !bg-[#00000008] dark:!bg-[#ffffff10] border-transparent"
-                >
-                    <Download size={14} />
-                    导出 PDF
-                </motion.button>
-
-                <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.96 }}
-                    data-testid="export-html"
-                    onClick={onExportHtml}
-                    className="apple-export-btn !hidden lg:!flex !bg-[#00000008] dark:!bg-[#ffffff10] border-transparent"
-                >
-                    <Download size={14} />
-                    导出 HTML
-                </motion.button>
-
-                <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.96 }}
-                    data-testid="copy-button"
-                    onClick={onCopy}
-                    disabled={isCopying}
-                    className={copied ? 'apple-copy-btn-success apple-copy-btn' : isCopying ? 'apple-copy-btn opacity-80 cursor-not-allowed' : 'apple-copy-btn'}
-                >
-                    {copied ? <CheckCircle2 size={16} /> : isCopying ? <Loader2 className="animate-spin" size={16} /> : <Copy size={16} />}
-                    <span className="hidden sm:inline">{copied ? '已复制！请贴往公众号' : isCopying ? '正在打包图片...' : '复制到公众号'}</span>
-                    <span className="sm:hidden">{copied ? '已复制' : isCopying ? '打包中...' : '复制'}</span>
                 </motion.button>
 
                 {publishAction}

@@ -5,7 +5,7 @@ import { extraThemes } from './extra';
 
 export type { Theme };
 export const THEMES: Theme[] = [...classicThemes, ...modernThemes, ...extraThemes];
-export const DEFAULT_THEME_ID = THEMES[0].id;
+export const DEFAULT_THEME_ID = 'claude';
 
 export interface ThemeGroup {
   label: string;

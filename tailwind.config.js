@@ -37,6 +37,15 @@ export default {
                     'Arial',
                     'sans-serif'
                 ],
+                serif: [
+                    '"Iowan Old Style"',
+                    '"Palatino Linotype"',
+                    '"Songti SC"',
+                    '"STSong"',
+                    '"Noto Serif CJK SC"',
+                    'Georgia',
+                    'serif'
+                ],
                 mono: [
                     '"SF Mono"',
                     'Menlo',

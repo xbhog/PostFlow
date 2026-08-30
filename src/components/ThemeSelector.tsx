@@ -51,7 +51,7 @@ export default function ThemeSelector({ activeTheme, onThemeChange }: ThemeSelec
     }, [isThemeOpen]);
 
     // Keep top quick-switch pills fixed for best discoverability.
-    const pillThemeIds = ['apple', 'claude', 'wechat', 'sspai'];
+    const pillThemeIds = ['claude', 'apple', 'wechat', 'sspai'];
     const pillThemes: Theme[] = pillThemeIds
         .map(id => THEMES.find(theme => theme.id === id))
         .filter((theme): theme is Theme => Boolean(theme));
@@ -65,8 +65,10 @@ export default function ThemeSelector({ activeTheme, onThemeChange }: ThemeSelec
                 {pillThemes.map(theme => (
                     <button
                         key={theme.id}
+                        type="button"
+                        aria-pressed={activeTheme === theme.id}
                         onClick={() => onThemeChange(theme.id)}
-                        className={`px-4 py-1.5 rounded-full text-[13px] font-medium transition-all ${activeTheme === theme.id
+                        className={`px-4 py-1.5 rounded-full text-[13px] font-medium transition-all ${activeTheme === theme.id}
                             ? 'bg-white dark:bg-[#2c2c2e] text-[#1d1d1f] dark:text-[#f5f5f7] shadow-sm'
                             : 'text-[#86868b] hover:text-[#1d1d1f] dark:text-[#a1a1a6] dark:hover:text-[#f5f5f7]'
                             }`}

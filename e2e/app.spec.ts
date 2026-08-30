@@ -91,6 +91,14 @@ async function scrollAndWaitForSync(
         .toBeLessThan(0.12);
 }
 
+test('defaults a new article to the Claude theme', async ({ page }) => {
+    await createArticleAndOpenEditor(page);
+    await expect(page.getByRole('button', { name: 'Claude', pressed: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: '导出 PDF' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: '导出 HTML' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /复制到公众号|复制/ })).toHaveCount(0);
+});
+
 test('creates, saves and reopens a browser article', async ({ page }) => {
     await createArticleAndOpenEditor(page);
 
@@ -102,22 +110,27 @@ test('creates, saves and reopens a browser article', async ({ page }) => {
     await page.getByRole('button', { name: /文章列表/ }).click();
     await expect(page.getByText('PostFlow 本地文章测试')).toBeVisible();
     await expect(page.getByTestId('library-publish-status')).toHaveText('未同步');
+    await expect(page.getByTestId('library-grid')).toBeVisible();
+
+    await page.getByRole('button', { name: '列表视图' }).click();
+    await expect(page.getByTestId('library-list')).toBeVisible();
+    await expect(page.getByTestId('library-publish-status')).toHaveText('未同步');
 
     await page.getByText('PostFlow 本地文章测试').click();
     await expect(titleInput).toHaveValue('PostFlow 本地文章测试');
     await expect.poll(async () => getEditorMarkdown(page)).toBe('# 本地文章\n\n这段内容应该自动保存。');
 });
 
-test('keeps the copy button visible on mobile', async ({ page }) => {
+test('keeps the publish button visible on mobile', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await createArticleAndOpenEditor(page);
 
     await page.getByTestId('tab-preview').click();
-    const copyButton = page.locator('[data-testid="copy-button"]:visible');
+    const publishButton = page.locator('[data-testid="publish-draft-button"]:visible');
 
-    await expect(copyButton).toBeVisible();
+    await expect(publishButton).toBeVisible();
 
-    const box = await copyButton.boundingBox();
+    const box = await publishButton.boundingBox();
     expect(box).not.toBeNull();
     expect(box!.x).toBeGreaterThanOrEqual(0);
     expect(box!.x + box!.width).toBeLessThanOrEqual(390);

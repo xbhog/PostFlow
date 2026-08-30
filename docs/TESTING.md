@@ -166,6 +166,8 @@ exports/
 pnpm build:desktop
 ```
 
+本地只想确认窗口能起来时，用更快的 `pnpm build:desktop:dir`。
+
 预期输出：
 
 ```text

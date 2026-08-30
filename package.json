@@ -15,7 +15,9 @@
     "dev:desktop": "concurrently -k \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && electron .\"",
     "start:desktop": "electron .",
     "build": "tsc -b && vite build",
-    "build:desktop": "pnpm build && electron-builder --publish never",
+    "build:icon": "node scripts/build-icon.mjs",
+    "build:desktop": "pnpm build:icon && vite build && electron-builder --win --publish never",
+    "build:desktop:dir": "pnpm build:icon && vite build && electron-builder --win --dir --publish never",
     "test:desktop-package": "node scripts/verify-packaged-app.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -25,21 +27,9 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1095.0",
-    "@types/turndown": "^5.0.6",
-    "entities": "7.0.1",
-    "framer-motion": "^11.11.11",
-    "highlight.js": "^11.10.0",
-    "html2pdf.js": "^0.14.0",
-    "lucide-react": "^0.460.0",
-    "markdown-it": "^14.1.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
     "sanitize-html": "2.17.5",
     "sharp": "^0.35.3",
-    "turndown": "^7.2.2",
-    "turndown-plugin-gfm": "^1.0.2",
-    "undici": "7.22.0",
-    "vditor": "^3.11.3"
+    "undici": "7.22.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.13.0",
@@ -50,6 +40,7 @@
     "@types/node": "^25.3.3",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
+    "@types/turndown": "^5.0.6",
     "@vitejs/plugin-react": "^4.3.3",
     "autoprefixer": "^10.4.20",
     "concurrently": "^9.1.2",
@@ -58,12 +49,22 @@
     "eslint": "^9.13.0",
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.4.14",
+    "framer-motion": "^11.11.11",
     "globals": "^15.11.0",
+    "highlight.js": "^11.10.0",
+    "html2pdf.js": "^0.14.0",
+    "lucide-react": "^0.460.0",
+    "markdown-it": "^14.1.0",
     "jsdom": "^28.1.0",
     "postcss": "^8.4.47",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "tailwindcss": "^3.4.14",
+    "turndown": "^7.2.2",
+    "turndown-plugin-gfm": "^1.0.2",
     "typescript": "~5.6.2",
     "typescript-eslint": "^8.11.0",
+    "vditor": "^3.11.3",
     "vite": "^5.4.10",
     "vitest": "^4.0.18",
     "wait-on": "^8.0.2"
@@ -71,13 +72,20 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "electron",
-      "esbuild"
+      "esbuild",
+      "sharp"
     ]
   },
   "build": {
     "appId": "com.postflow.app",
     "productName": "PostFlow",
     "asar": true,
+    "compression": "normal",
+    "electronLanguages": [
+      "zh-CN",
+      "en-US"
+    ],
+    "npmRebuild": false,
     "asarUnpack": [
       "node_modules/sharp/**/*",
       "node_modules/@img/**/*"
@@ -85,17 +93,30 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
+      "build/icon.ico",
       "package.json",
       "LICENSE",
-      "THIRD_PARTY_NOTICES.md"
+      "THIRD_PARTY_NOTICES.md",
+      "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+      "!**/node_modules/*/{test,tests,__tests__,example,examples,docs}/**",
+      "!**/node_modules/@aws-sdk/**/{dist-es,dist-types}/**",
+      "!**/node_modules/@smithy/**/{dist-es,dist-types}/**"
     ],
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "build"
     },
     "win": {
+      "icon": "build/icon.ico",
       "target": [
-        "nsis",
-        "portable"
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
       ]
     },
     "nsis": {

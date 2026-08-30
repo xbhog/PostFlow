@@ -13,15 +13,14 @@ concurrency:
   group: release-${{ github.sha }}
   cancel-in-progress: false
 
-jobs:
-  release-windows:
-    name: 测试、构建并发布 Windows 安装包
-    runs-on: windows-latest
-    timeout-minutes: 45
-    defaults:
-      run:
-        shell: pwsh
+env:
+  CSC_IDENTITY_AUTO_DISCOVERY: false
 
+jobs:
+  quality:
+    name: 检查与测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: 检出代码
         uses: actions/checkout@v7
@@ -47,24 +46,52 @@ jobs:
         run: pnpm test
 
       - name: 安装 Playwright Chromium
-        run: pnpm exec playwright install chromium
+        run: pnpm exec playwright install --with-deps chromium
 
       - name: 运行端到端测试
         run: pnpm test:e2e
+
+      - name: 构建前端
+        run: pnpm build
+
+  package-windows:
+    name: 打包 Windows
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v7
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.30.3
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 缓存 Electron 下载
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+          key: electron-win-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
 
       - name: 构建 Windows 桌面版
         run: pnpm build:desktop
 
       - name: 验证打包后的桌面程序可启动
         run: pnpm test:desktop-package
-
-      - name: 生成 Release 元数据
-        run: |
-          $metadata = node scripts/create-release-metadata.mjs | ConvertFrom-Json
-          "RELEASE_TAG=$($metadata.tag)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "RELEASE_TITLE=$($metadata.title)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "RELEASE_SHORT_SHA=$($metadata.shortSha)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          $metadata | ConvertTo-Json
 
       - name: 生成 SHA-256 校验文件
         run: |
@@ -80,26 +107,48 @@ jobs:
           $checksums | Set-Content -LiteralPath release/SHA256SUMS.txt -Encoding ascii
           Get-Content -LiteralPath release/SHA256SUMS.txt
 
+      - name: 上传安装包
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-desktop
+          path: |
+            release/*.exe
+            release/SHA256SUMS.txt
+          if-no-files-found: error
+
+  publish:
+    name: 发布 GitHub Release
+    needs: [quality, package-windows]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v7
+
+      - name: 下载安装包
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-desktop
+          path: release
+
+      - name: 生成 Release 元数据
+        run: |
+          node scripts/create-release-metadata.mjs > release-meta.json
+          cat release-meta.json
+          echo "RELEASE_TAG=$(node -p "require('./release-meta.json').tag")" >> "$GITHUB_ENV"
+          echo "RELEASE_TITLE=$(node -p "require('./release-meta.json').title")" >> "$GITHUB_ENV"
+
       - name: 创建或更新 GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $releaseExists = $null -ne (gh release view $env:RELEASE_TAG 2>$null)
-          if (-not $releaseExists) {
-            $createArgs = @(
-              "release", "create", $env:RELEASE_TAG,
-              "--title", $env:RELEASE_TITLE,
-              "--generate-notes",
-              "--target", $env:GITHUB_SHA,
-              "--latest"
-            )
-            gh @createArgs
-          }
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" \
+              --title "$RELEASE_TITLE" \
+              --generate-notes \
+              --target "$GITHUB_SHA" \
+              --latest
+          fi
 
-          $assets = @(
-            Get-ChildItem -LiteralPath release -Filter "*.exe" -File | ForEach-Object FullName
-          )
-          $assets += (Resolve-Path -LiteralPath release/SHA256SUMS.txt).Path
-          gh release upload $env:RELEASE_TAG @assets --clobber
-
-          gh release view $env:RELEASE_TAG --json url,tagName,isDraft,isPrerelease
+          gh release upload "$RELEASE_TAG" release/*.exe release/SHA256SUMS.txt --clobber
+          gh release view "$RELEASE_TAG" --json url,tagName,isDraft,isPrerelease

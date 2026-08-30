@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" fill="none">
+  <defs>
+    <linearGradient id="plate" x1="180" y1="80" x2="860" y2="940" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2A2A2E"/>
+      <stop offset="1" stop-color="#111114"/>
+    </linearGradient>
+    <linearGradient id="glyph" x1="300" y1="220" x2="700" y2="780" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#F2F2F7"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="48" y="48" width="928" height="928" rx="236" fill="url(#plate)"/>
+
+  <!-- Paper / P stem -->
+  <path
+    d="M318 236h248c132 0 232 104 232 240 0 136-100 240-232 240H390V788c0 18-14 32-32 32h-8c-18 0-32-14-32-32V268c0-18 14-32 32-32Z"
+    fill="url(#glyph)"
+  />
+
+  <!-- Inner counter, so the mark reads as a page and a P -->
+  <path
+    d="M414 348h136c62 0 108 50 108 128s-46 128-108 128H414V348Z"
+    fill="#17171A"
+  />
+
+  <!-- Publish flow accent -->
+  <rect x="622" y="724" width="148" height="64" rx="32" fill="#07C160"/>
+</svg>

@@ -189,7 +189,7 @@ pnpm build
 pnpm build:desktop
 ```
 
-桌面安装包输出到 `release/`。
+本地快速验证 unpacked 目录（不打 NSIS/便携版）可以用 `pnpm build:desktop:dir`。完整安装包输出到 `release/`。
 
 ### 自动发布 GitHub Release
 
@@ -199,7 +199,7 @@ pnpm build:desktop
 git push origin main
 ```
 
-工作流会根据 `package.json` 版本和 GitHub Actions 运行编号生成 `vX.Y.Z-build.N` 标签，然后依次执行依赖安装、Lint、单元测试、Playwright E2E 和 Electron 打包。全部通过后，GitHub Release 会包含：
+工作流会根据 `package.json` 版本和 GitHub Actions 运行编号生成 `vX.Y.Z-build.N` 标签，然后并行跑质量检查和 Windows 打包。两边都通过后，GitHub Release 会包含：
 
 - PostFlow NSIS 安装程序
 - PostFlow Portable 便携版

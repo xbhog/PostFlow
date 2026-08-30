@@ -17,10 +17,11 @@ export default function Header({
     return (
         <header className="glass sticky top-0 z-[100] flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
             <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-[8px] bg-black shadow-[0_2px_8px_rgba(0,0,0,0.15)] dark:bg-white dark:shadow-[0_2px_12px_rgba(255,255,255,0.15)]">
+                <div className="flex h-8 w-8 items-center justify-center rounded-[8px] bg-[#17171A] shadow-[0_2px_8px_rgba(0,0,0,0.15)] dark:bg-white dark:shadow-[0_2px_12px_rgba(255,255,255,0.15)]">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                        <path d="M6 4H12.5C16.6421 4 20 7.35786 20 11.5C20 15.6421 16.6421 19 12.5 19H6V4Z" fill="none" strokeWidth="2.3" stroke="currentColor" className="text-white dark:text-black" />
-                        <path d="M9 8H12.25C14.0449 8 15.5 9.45507 15.5 11.25C15.5 13.0449 14.0449 14.5 12.25 14.5H9V8Z" fill="currentColor" className="text-white dark:text-black" />
+                        <path d="M6.4 4h6.7c3.6 0 6.3 2.8 6.3 6.5S16.7 17 13.1 17H8.2v3.2c0 .4-.4.8-.8.8h-.2c-.4 0-.8-.4-.8-.8V4.8c0-.4.4-.8.8-.8Z" fill="currentColor" className="text-white dark:text-black" />
+                        <path d="M9 8.2h3.3c1.5 0 2.6 1.2 2.6 3s-1.1 3-2.6 3H9V8.2Z" fill="currentColor" className="text-[#17171A] dark:text-white" />
+                        <rect x="14.6" y="18.4" width="4.4" height="1.9" rx="0.95" fill="#07C160" />
                     </svg>
                 </div>
                 <span className="text-lg font-bold tracking-tight text-black dark:text-white">

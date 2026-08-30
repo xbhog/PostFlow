@@ -1,11 +1,6 @@
 <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <!-- 背景圆角矩形 -->
-    <rect width="32" height="32" rx="8" fill="#000000"/>
-    
-    <!-- 居中的 R 图标 (24x24 viewBox 放在 32x32 的中间，偏移量为 4,4) -->
-    <g transform="translate(4, 4)">
-        <path d="M16.5 7.5L5 19H10.5C13.5376 19 16 16.5376 16 13.5C16 10.4624 13.5376 8 10.5 8H8.5V11.5L16.5 7.5Z" fill="white" />
-        <path d="M8.5 4H10.5C15.7467 4 20 8.25329 20 13.5C20 18.7467 15.7467 23 10.5 23H4V4H8.5Z" fill="none" stroke-width="2.5" stroke="white" />
-        <path d="M4 11.5H8.5" stroke-width="2.5" stroke-linecap="round" stroke="white" />
-    </g>
+  <rect width="32" height="32" rx="8" fill="#17171A"/>
+  <path d="M9 6.5h8.2c4.15 0 7.3 3.2 7.3 7.45 0 4.25-3.15 7.45-7.3 7.45H11.2V25c0 .55-.45 1-1 1h-.2c-.55 0-1-.45-1-1V7.5c0-.55.45-1 1-1Z" fill="#F5F5F7"/>
+  <path d="M12.1 10.1h4.15c1.95 0 3.4 1.55 3.4 3.85s-1.45 3.85-3.4 3.85H12.1V10.1Z" fill="#17171A"/>
+  <rect x="19.2" y="22.6" width="5.2" height="2.3" rx="1.15" fill="#07C160"/>
 </svg>

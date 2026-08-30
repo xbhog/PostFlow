@@ -44,7 +44,11 @@ function vditorAssets(): Plugin {
             attach(server.middlewares);
         },
         closeBundle() {
-            cpSync(vditorRoot, path.resolve('dist/vditor-cdn'), { recursive: true });
+            const from = path.join(vditorRoot, 'dist');
+            const to = path.resolve('dist/vditor-cdn/dist');
+            if (existsSync(from)) {
+                cpSync(from, to, { recursive: true });
+            }
         }
     };
 }

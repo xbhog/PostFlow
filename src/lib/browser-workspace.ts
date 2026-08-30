@@ -20,6 +20,7 @@ import type {
   PublishStep,
   SaveWeChatAccountInput
 } from '../types/wechat';
+import { resolveArticleCoverUrl } from './articleCover';
 import { pickLastPublish } from './lastPublish';
 import { DEFAULT_THEME_ID } from './themes';
 
@@ -108,6 +109,10 @@ function writePublishRecords(records: Record<string, PublishRecord[]>) {
 }
 
 function toSummary(article: ArticleDocument): ArticleSummary {
+  const coverUrl = resolveArticleCoverUrl({
+    markdown: article.markdown,
+    assets: readAssets()[article.id] || []
+  });
   return {
     id: article.id,
     title: article.title,
@@ -115,7 +120,8 @@ function toSummary(article: ArticleDocument): ArticleSummary {
     version: article.version,
     createdAt: article.createdAt,
     updatedAt: article.updatedAt,
-    lastPublish: pickLastPublish(readPublishRecords()[article.id] || [])
+    lastPublish: pickLastPublish(readPublishRecords()[article.id] || []),
+    ...(coverUrl ? { coverUrl } : {})
   };
 }
 

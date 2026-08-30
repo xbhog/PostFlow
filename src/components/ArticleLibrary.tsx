@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   FileText,
   FolderOpen,
@@ -39,6 +40,94 @@ const BADGE_CLASS: Record<LibraryPublishTone, string> = {
   error: 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300',
   pending: 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300'
 };
+
+function ArticleCardBadges({ article }: { article: ArticleSummary }) {
+  const badge = getLibraryPublishBadge(article.version, article.lastPublish);
+  return (
+    <div className="flex flex-col items-end gap-1.5">
+      <span className="rounded-full bg-[#f5f5f7] px-2.5 py-1 text-xs text-[#6e6e73] dark:bg-[#242424] dark:text-[#a1a1a6]">
+        V{article.version}
+      </span>
+      <span
+        data-testid="library-publish-status"
+        className={`rounded-full px-2.5 py-1 text-xs ${BADGE_CLASS[badge.tone]}`}
+      >
+        {badge.label}
+      </span>
+    </div>
+  );
+}
+
+function ArticleCard({
+  article,
+  onOpen,
+  onDelete
+}: {
+  article: ArticleSummary;
+  onOpen(articleId: string): void;
+  onDelete(articleId: string): void;
+}) {
+  const [coverBroken, setCoverBroken] = useState(false);
+  const showCover = Boolean(article.coverUrl) && !coverBroken;
+
+  return (
+    <article className="group overflow-hidden rounded-3xl border border-black/5 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-white/10 dark:bg-[#111111]">
+      <button
+        type="button"
+        onClick={() => onOpen(article.id)}
+        className="block w-full text-left"
+      >
+        {showCover ? (
+          <div className="relative overflow-hidden bg-[#f5f5f7] dark:bg-[#242424]">
+            <img
+              data-testid="library-cover"
+              src={article.coverUrl}
+              alt=""
+              className="aspect-[2.35/1] w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+              onError={() => setCoverBroken(true)}
+            />
+            <div className="absolute right-3 top-3 rounded-2xl bg-black/25 p-1.5 backdrop-blur-sm">
+              <ArticleCardBadges article={article} />
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-start justify-between gap-3 px-5 pt-5">
+            <div className="rounded-2xl bg-[#f5f5f7] p-3 text-black dark:bg-[#242424] dark:text-white">
+              <FileText size={22} />
+            </div>
+            <ArticleCardBadges article={article} />
+          </div>
+        )}
+        <div className={showCover ? 'px-5 pt-4' : 'px-5 pt-8'}>
+          <h2 className="line-clamp-2 min-h-12 text-base font-semibold leading-6 text-black dark:text-white">
+            {article.title || '未命名文章'}
+          </h2>
+          <p className="mt-3 text-xs text-[#86868b]">
+            更新于 {formatDate(article.updatedAt)}
+          </p>
+        </div>
+      </button>
+
+      <div className="mt-4 flex items-center justify-between border-t border-black/5 px-5 pb-5 pt-4 dark:border-white/10">
+        <button
+          type="button"
+          onClick={() => onOpen(article.id)}
+          className="text-sm font-medium text-[#0066cc] dark:text-[#0a84ff]"
+        >
+          继续编辑
+        </button>
+        <button
+          type="button"
+          onClick={() => onDelete(article.id)}
+          aria-label={`删除${article.title}`}
+          className="rounded-lg p-2 text-[#86868b] opacity-60 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 dark:hover:bg-red-950/30"
+        >
+          <Trash2 size={16} />
+        </button>
+      </div>
+    </article>
+  );
+}
 
 export default function ArticleLibrary({
   articles,
@@ -135,62 +224,14 @@ export default function ArticleLibrary({
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {articles.map((article) => {
-              const badge = getLibraryPublishBadge(article.version, article.lastPublish);
-              return (
-              <article
+            {articles.map((article) => (
+              <ArticleCard
                 key={article.id}
-                className="group rounded-3xl border border-black/5 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-white/10 dark:bg-[#111111]"
-              >
-                <button
-                  type="button"
-                  onClick={() => onOpen(article.id)}
-                  className="block w-full text-left"
-                >
-                  <div className="mb-8 flex items-start justify-between gap-3">
-                    <div className="rounded-2xl bg-[#f5f5f7] p-3 text-black dark:bg-[#242424] dark:text-white">
-                      <FileText size={22} />
-                    </div>
-                    <div className="flex flex-col items-end gap-1.5">
-                      <span className="rounded-full bg-[#f5f5f7] px-2.5 py-1 text-xs text-[#6e6e73] dark:bg-[#242424] dark:text-[#a1a1a6]">
-                        V{article.version}
-                      </span>
-                      <span
-                        data-testid="library-publish-status"
-                        className={`rounded-full px-2.5 py-1 text-xs ${BADGE_CLASS[badge.tone]}`}
-                      >
-                        {badge.label}
-                      </span>
-                    </div>
-                  </div>
-                  <h2 className="line-clamp-2 min-h-12 text-base font-semibold leading-6 text-black dark:text-white">
-                    {article.title || '未命名文章'}
-                  </h2>
-                  <p className="mt-3 text-xs text-[#86868b]">
-                    更新于 {formatDate(article.updatedAt)}
-                  </p>
-                </button>
-
-                <div className="mt-4 flex items-center justify-between border-t border-black/5 pt-4 dark:border-white/10">
-                  <button
-                    type="button"
-                    onClick={() => onOpen(article.id)}
-                    className="text-sm font-medium text-[#0066cc] dark:text-[#0a84ff]"
-                  >
-                    继续编辑
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onDelete(article.id)}
-                    aria-label={`删除${article.title}`}
-                    className="rounded-lg p-2 text-[#86868b] opacity-60 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 dark:hover:bg-red-950/30"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </article>
-              );
-            })}
+                article={article}
+                onOpen={onOpen}
+                onDelete={onDelete}
+              />
+            ))}
           </div>
         )}
       </div>

@@ -3,6 +3,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { DEFAULT_THEME_ID } = require('./theme-defaults.cjs');
 const { pathExists, writeJsonAtomic, writeTextAtomic } = require('./fs-utils.cjs');
+const { resolveArticleCoverUrl } = require('./article-cover.cjs');
 
 const ARTICLE_ID_PATTERN = /^[a-zA-Z0-9-]+$/;
 
@@ -106,8 +107,15 @@ class ArticleService {
         const articleDirectory = path.join(articlesRoot, entry.name);
         const rawMetadata = await fs.readFile(path.join(articleDirectory, 'metadata.json'), 'utf8');
         const metadata = JSON.parse(rawMetadata);
-        const lastPublish = await readLatestPublish(articleDirectory);
-        return lastPublish ? { ...metadata, lastPublish } : metadata;
+        const [lastPublish, coverUrl] = await Promise.all([
+          readLatestPublish(articleDirectory),
+          resolveArticleCoverUrl(articleDirectory)
+        ]);
+        return {
+          ...metadata,
+          ...(lastPublish ? { lastPublish } : {}),
+          ...(coverUrl ? { coverUrl } : {})
+        };
       } catch (error) {
         console.warn(`Skipping unreadable article ${entry.name}:`, error);
         return null;

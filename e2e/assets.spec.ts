@@ -39,6 +39,13 @@ test('pastes a clipboard image through the editor and uploads it', async ({ page
 });
 
 test('uploads a browser mock image and persists the public URL', async ({ page }) => {
+  await page.route('https://mock-assets.postflow.local/**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'image/png',
+      body: tinyPng
+    });
+  });
   await createArticle(page);
 
   await page.getByTestId('image-file-input').setInputFiles({
@@ -57,6 +64,8 @@ test('uploads a browser mock image and persists the public URL', async ({ page }
   await page.getByRole('button', { name: '关闭' }).click();
   await expect(page.getByTestId('save-status')).toContainText('已保存', { timeout: 5000 });
   await page.getByRole('button', { name: /文章列表/ }).click();
+  await expect(page.getByTestId('library-cover')).toBeVisible();
+  await expect(page.getByTestId('library-cover')).toHaveAttribute('src', /https:\/\/mock-assets\.postflow\.local\//);
   await page.getByText('未命名文章').first().click();
   await expectEditorToMatch(page, /https:\/\/mock-assets\.postflow\.local\//);
 });

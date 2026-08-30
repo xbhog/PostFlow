@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { extractCoverUrlFromMarkdown } from '../lib/articleCover';
 import { workspaceClient } from '../lib/workspace';
 import type { ArticleDocument, ArticleSummary } from '../types/article';
 import type { SaveStatus } from '../components/ArticleEditorBar';
@@ -19,7 +20,8 @@ export function toArticleSummary(article: ArticleDocument, previous?: ArticleSum
         version: article.version,
         createdAt: article.createdAt,
         updatedAt: article.updatedAt,
-        lastPublish: article.lastPublish ?? previous?.lastPublish
+        lastPublish: article.lastPublish ?? previous?.lastPublish,
+        coverUrl: extractCoverUrlFromMarkdown(article.markdown) || article.coverUrl
     };
 }
 

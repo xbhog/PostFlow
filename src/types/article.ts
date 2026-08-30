@@ -16,6 +16,7 @@ export interface ArticleSummary {
   createdAt: string;
   updatedAt: string;
   lastPublish?: ArticleLastPublish;
+  coverUrl?: string;
 }
 
 export interface ArticleDocument extends ArticleSummary {

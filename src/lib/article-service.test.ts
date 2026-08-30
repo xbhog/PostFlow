@@ -92,4 +92,53 @@ describe('PostFlow 默认工作区', () => {
     });
     expect(JSON.parse(await readFile(join(service.getArticleDirectory(article.id), 'metadata.json'), 'utf8'))).not.toHaveProperty('lastPublish');
   });
+
+  it('lists a cover URL from markdown without writing it into metadata', async () => {
+    const { app } = await createMockApp();
+    const service = new ArticleService(app);
+    await service.initialize();
+    const article = await service.createArticle({
+      title: '带封面',
+      markdown: '# 带封面\n\n![封面](https://images.example.com/cover.png)\n'
+    });
+
+    const listed = await service.listArticles();
+    expect(listed[0].coverUrl).toBe('https://images.example.com/cover.png');
+    expect(JSON.parse(await readFile(join(service.getArticleDirectory(article.id), 'metadata.json'), 'utf8'))).not.toHaveProperty('coverUrl');
+  });
+
+  it('falls back to the first uploaded asset when markdown has no public image', async () => {
+    const { app } = await createMockApp();
+    const service = new ArticleService(app);
+    await service.initialize();
+    const article = await service.createArticle({
+      title: '上传中',
+      markdown: '![封面](draftdock-upload://asset-1)\n'
+    });
+    await mkdir(join(service.getArticleDirectory(article.id), 'assets'), { recursive: true });
+    await writeFile(join(service.getArticleDirectory(article.id), 'assets', 'manifest.json'), JSON.stringify({
+      version: 1,
+      assets: [
+        {
+          id: 'asset-1',
+          status: 'success',
+          publicUrl: 'https://mock-assets.postflow.local/cover.webp',
+          createdAt: '2026-01-01T00:00:00.000Z'
+        }
+      ]
+    }), 'utf8');
+
+    const listed = await service.listArticles();
+    expect(listed[0].coverUrl).toBe('https://mock-assets.postflow.local/cover.webp');
+  });
+
+  it('omits coverUrl when the article has no usable image', async () => {
+    const { app } = await createMockApp();
+    const service = new ArticleService(app);
+    await service.initialize();
+    await service.createArticle({ title: '纯文字' });
+
+    const listed = await service.listArticles();
+    expect(listed[0]).not.toHaveProperty('coverUrl');
+  });
 });

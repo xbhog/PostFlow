@@ -21,6 +21,8 @@ import { workspaceClient } from '../lib/workspace';
 import type { ArticleDocument } from '../types/article';
 import type { AssetRecord } from '../types/assets';
 import NoticeToast from './NoticeToast';
+import XPublishPanel from './XPublishPanel';
+import { writeXPublishPrefs, type PublishChannel } from '../lib/xPrefs';
 import type {
   CreateWeChatDraftInput,
   PublicWeChatAccount,
@@ -29,6 +31,8 @@ import type {
   PublishStep,
   PublishValidationResult
 } from '../types/wechat';
+
+export type { PublishChannel };
 
 interface PublishButtonProps {
   article: ArticleDocument;
@@ -40,28 +44,56 @@ interface PublishButtonProps {
   isDesktop: boolean;
   open: boolean;
   onOpenChange(open: boolean): void;
+  channel?: PublishChannel;
+  onChannelChange?(channel: PublishChannel): void;
   showTrigger?: boolean;
   triggerTestId?: string;
 }
 
+function XMark({ size = 13 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M18.244 2H21.5l-7.5 8.57L22.5 22h-6.59l-5.16-6.74L5.2 22H1.94l8.02-9.16L1.5 2h6.75l4.66 6.2L18.244 2Zm-1.16 18.1h1.81L7.01 3.8H5.07l12.01 16.3Z" />
+    </svg>
+  );
+}
+
 export function PublishTriggerButton({
   onClick,
+  onOpenChannel,
   testId
 }: {
-  onClick(): void;
+  onClick?(): void;
+  onOpenChannel?(channel: PublishChannel): void;
   testId?: string;
 }) {
+  const open = (next: PublishChannel) => {
+    if (onOpenChannel) onOpenChannel(next);
+    else onClick?.();
+  };
+
   return (
-    <button
-      data-testid={testId}
-      type="button"
-      onClick={onClick}
-      className="apple-export-btn border-transparent !bg-[#07c160] !text-white hover:!bg-[#06ad56]"
-    >
-      <CloudUpload size={15} />
-      <span className="hidden sm:inline">同步草稿</span>
-      <span className="sm:hidden">发布</span>
-    </button>
+    <div data-testid="publish-channel-switch" className="flex items-center gap-1.5">
+      <button
+        data-testid={testId}
+        type="button"
+        onClick={() => open('wechat')}
+        className="apple-export-btn border-transparent !bg-[#07c160] !text-white hover:!bg-[#06ad56]"
+      >
+        <CloudUpload size={15} />
+        <span className="hidden sm:inline">公众号</span>
+        <span className="sm:hidden">微信</span>
+      </button>
+      <button
+        data-testid="publish-x-button"
+        type="button"
+        onClick={() => open('x')}
+        className="apple-export-btn border-transparent !bg-[#0f1419] !text-white hover:!bg-black dark:!bg-white dark:!text-black dark:hover:!bg-[#e7e9ea]"
+      >
+        <XMark />
+        <span>X</span>
+      </button>
+    </div>
   );
 }
 
@@ -133,9 +165,18 @@ export default function PublishButton({
   isDesktop,
   open,
   onOpenChange,
+  channel: channelProp,
+  onChannelChange,
   showTrigger = false,
   triggerTestId
 }: PublishButtonProps) {
+  const [internalChannel, setInternalChannel] = useState<PublishChannel>('wechat');
+  const channel = channelProp ?? internalChannel;
+  const setChannel = (next: PublishChannel) => {
+    setInternalChannel(next);
+    onChannelChange?.(next);
+    writeXPublishPrefs({ lastChannel: next });
+  };
   const [accounts, setAccounts] = useState<PublicWeChatAccount[]>([]);
   const [records, setRecords] = useState<PublishRecord[]>([]);
   const [accountId, setAccountId] = useState('');
@@ -352,7 +393,13 @@ export default function PublishButton({
   return (
     <>
       {showTrigger && (
-        <PublishTriggerButton testId={triggerTestId} onClick={() => onOpenChange(true)} />
+        <PublishTriggerButton
+          testId={triggerTestId}
+          onOpenChannel={(next) => {
+            setChannel(next);
+            onOpenChange(true);
+          }}
+        />
       )}
 
       {successNotice && (
@@ -369,17 +416,42 @@ export default function PublishButton({
             <header className="flex shrink-0 items-center justify-between border-b border-black/[0.07] bg-white/90 px-5 py-4 backdrop-blur-xl dark:border-white/10 dark:bg-[#1e231f]/90 sm:px-7">
               <div className="min-w-0">
                 <div className="mb-1 flex items-center gap-2">
-                  <span className="rounded-full bg-[#07c160]/10 px-2.5 py-1 text-[10px] font-bold tracking-[0.18em] text-[#078d49] dark:text-[#51da91]">WECHAT DRAFT</span>
-                  {selectedAccount && <span className="truncate text-xs text-[#737a75] dark:text-[#9ca39e]">{selectedAccount.name}</span>}
+                  <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold tracking-[0.18em] ${
+                    channel === 'x'
+                      ? 'bg-[#0f1419]/10 text-[#0f1419] dark:bg-white/10 dark:text-white'
+                      : 'bg-[#07c160]/10 text-[#078d49] dark:text-[#51da91]'
+                  }`}>
+                    {channel === 'x' ? 'X ARTICLE' : 'WECHAT DRAFT'}
+                  </span>
+                  {channel === 'wechat' && selectedAccount && <span className="truncate text-xs text-[#737a75] dark:text-[#9ca39e]">{selectedAccount.name}</span>}
                 </div>
-                <h2 id="publish-dialog-title" className="text-xl font-semibold tracking-[-0.02em] text-[#172019] dark:text-white">同步到公众号草稿箱</h2>
+                <h2 id="publish-dialog-title" className="text-xl font-semibold tracking-[-0.02em] text-[#172019] dark:text-white">
+                  {channel === 'x' ? '发布到 X' : '同步到公众号草稿箱'}
+                </h2>
                 <p className="mt-1 text-sm text-[#747b76] dark:text-[#a3aaa5]">
-                  {isDesktop ? '确认内容与封面后，由桌面端安全完成素材上传。' : '浏览器 Mock 模式不会调用真实公众号接口。'}
+                  {channel === 'x'
+                    ? '按会员/非会员处理字数，复制后粘贴到 X 官方编辑器。'
+                    : isDesktop ? '确认内容与封面后，由桌面端安全完成素材上传。' : '浏览器 Mock 模式不会调用真实公众号接口。'}
                 </p>
+                <div className="mt-3 inline-flex rounded-full bg-black/[0.05] p-1 dark:bg-white/10">
+                  <ChannelTab testId="publish-channel-wechat" active={channel === 'wechat'} onClick={() => setChannel('wechat')}>公众号</ChannelTab>
+                  <ChannelTab testId="publish-channel-x" active={channel === 'x'} onClick={() => setChannel('x')}>X</ChannelTab>
+                </div>
               </div>
               <button type="button" onClick={() => onOpenChange(false)} className="ml-4 rounded-full border border-black/[0.06] bg-white p-2.5 text-[#57605a] shadow-sm transition hover:bg-[#f0f3f0] hover:text-black dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10" aria-label="关闭发布面板"><X size={19} /></button>
             </header>
 
+            {channel === 'x' ? (
+              <XPublishPanel
+                articleId={article.id}
+                title={publishTitle || title}
+                markdown={article.markdown}
+                renderedHtml={renderedHtml}
+                assets={assets}
+                isDesktop={isDesktop}
+              />
+            ) : (
+              <>
             <div className="grid min-h-0 flex-1 overflow-y-auto lg:grid-cols-[minmax(0,1fr)_320px] lg:overflow-hidden">
               <section className="lg:flex lg:min-h-0 lg:flex-col">
                 {loading ? (
@@ -593,6 +665,8 @@ export default function PublishButton({
                 </div>
               </div>
             )}
+              </>
+            )}
           </div>
         </div>,
         document.body
@@ -716,6 +790,34 @@ function PublishProgressCard({
         </div>
       )}
     </section>
+  );
+}
+
+function ChannelTab({
+  testId,
+  active,
+  onClick,
+  children
+}: {
+  testId: string;
+  active: boolean;
+  onClick(): void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      data-testid={testId}
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
+        active
+          ? 'bg-white text-[#172019] shadow-sm dark:bg-[#0f1419] dark:text-white'
+          : 'text-[#616963] hover:text-[#172019] dark:text-[#a3aaa5] dark:hover:text-white'
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 

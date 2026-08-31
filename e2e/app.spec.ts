@@ -127,13 +127,18 @@ test('keeps the publish button visible on mobile', async ({ page }) => {
 
     await page.getByTestId('tab-preview').click();
     const publishButton = page.locator('[data-testid="publish-draft-button"]:visible');
+    const xButton = page.locator('[data-testid="publish-x-button"]:visible');
 
     await expect(publishButton).toBeVisible();
+    await expect(xButton).toBeVisible();
 
     const box = await publishButton.boundingBox();
+    const xBox = await xButton.boundingBox();
     expect(box).not.toBeNull();
+    expect(xBox).not.toBeNull();
     expect(box!.x).toBeGreaterThanOrEqual(0);
     expect(box!.x + box!.width).toBeLessThanOrEqual(390);
+    expect(xBox!.x + xBox!.width).toBeLessThanOrEqual(390);
 });
 
 test('renders bold text with punctuation without leaking markdown markers', async ({ page }) => {

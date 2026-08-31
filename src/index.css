@@ -76,6 +76,23 @@
         @apply bg-[#f2f2f7] hover:bg-[#e5e5ea] text-[#1d1d1f] dark:bg-[#2c2c2e] dark:hover:bg-[#3a3a3c] dark:text-[#f5f5f7] border border-[#00000010] dark:border-[#ffffff10] shadow-sm active:scale-95;
     }
 
+    .x-article-preview h1 {
+        @apply mb-3 text-[22px] font-semibold tracking-[-0.02em];
+    }
+
+    .x-article-preview h2 {
+        @apply mb-2 mt-5 text-[17px] font-semibold;
+    }
+
+    .x-article-preview p,
+    .x-article-preview li {
+        @apply mb-3;
+    }
+
+    .x-article-preview img {
+        @apply my-3 max-h-[360px] w-full rounded-xl object-cover;
+    }
+
     /* 隐藏滚动条但保留滚动功能 */
     .no-scrollbar::-webkit-scrollbar {
         display: none;

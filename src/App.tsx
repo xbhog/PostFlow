@@ -21,6 +21,7 @@ import AssetUploadQueue from './components/AssetUploadQueue';
 import NoticeToast from './components/NoticeToast';
 import WeChatAccountSettings from './components/WeChatAccountSettings';
 import PublishButton, { PublishTriggerButton } from './components/PublishButton';
+import { writeXPublishPrefs, type PublishChannel } from './lib/xPrefs';
 import { useNotice } from './hooks/useNotice';
 import { toArticleSummary, useAutoSave } from './hooks/useAutoSave';
 import { useScrollSync } from './hooks/useScrollSync';
@@ -41,6 +42,13 @@ export default function App() {
     const [storageSettingsOpen, setStorageSettingsOpen] = useState(false);
     const [wechatSettingsOpen, setWechatSettingsOpen] = useState(false);
     const [publishOpen, setPublishOpen] = useState(false);
+    const [publishChannel, setPublishChannel] = useState<PublishChannel>('wechat');
+
+    const openPublish = (channel: PublishChannel) => {
+        setPublishChannel(channel);
+        writeXPublishPrefs({ lastChannel: channel });
+        setPublishOpen(true);
+    };
     const [assetQueueOpen, setAssetQueueOpen] = useState(false);
 
     const previewRef = useRef<HTMLDivElement>(null);
@@ -289,14 +297,14 @@ export default function App() {
 
             <div className={`glass-toolbar z-[90] hidden grid-cols-1 px-0 transition-all duration-500 md:grid ${gridLayoutClass()}`}>
                 <ThemeSelector activeTheme={activeTheme} onThemeChange={setActiveTheme} />
-                <Toolbar previewDevice={previewDevice} onDeviceChange={setPreviewDevice} scrollSyncEnabled={scrollSyncEnabled} onToggleScrollSync={() => setScrollSyncEnabled((previous) => !previous)} publishAction={<PublishTriggerButton testId="publish-draft-button" onClick={() => setPublishOpen(true)} />} />
+                <Toolbar previewDevice={previewDevice} onDeviceChange={setPreviewDevice} scrollSyncEnabled={scrollSyncEnabled} onToggleScrollSync={() => setScrollSyncEnabled((previous) => !previous)} publishAction={<PublishTriggerButton testId="publish-draft-button" onOpenChannel={openPublish} />} />
             </div>
 
             <div className="glass-toolbar z-[90] md:hidden">
                 <div className="no-scrollbar overflow-x-auto border-b border-[#00000010] dark:border-[#ffffff10]">
                     <ThemeSelector activeTheme={activeTheme} onThemeChange={setActiveTheme} />
                 </div>
-                <Toolbar previewDevice={previewDevice} onDeviceChange={setPreviewDevice} scrollSyncEnabled={scrollSyncEnabled} onToggleScrollSync={() => setScrollSyncEnabled((previous) => !previous)} publishAction={<PublishTriggerButton testId="publish-draft-button" onClick={() => setPublishOpen(true)} />} />
+                <Toolbar previewDevice={previewDevice} onDeviceChange={setPreviewDevice} scrollSyncEnabled={scrollSyncEnabled} onToggleScrollSync={() => setScrollSyncEnabled((previous) => !previous)} publishAction={<PublishTriggerButton testId="publish-draft-button" onOpenChannel={openPublish} />} />
             </div>
 
             <main className={`relative grid flex-1 grid-cols-1 overflow-hidden transition-all duration-500 ${gridLayoutClass()}`}>
@@ -333,6 +341,8 @@ export default function App() {
                     isDesktop={workspaceClient.isDesktop}
                     open={publishOpen}
                     onOpenChange={setPublishOpen}
+                    channel={publishChannel}
+                    onChannelChange={setPublishChannel}
                 />
             )}
             <AssetUploadQueue open={assetQueueOpen} assets={assets} onClose={() => setAssetQueueOpen(false)} onRetry={(assetId) => void handleRetryAsset(assetId)} onRetryAll={() => void handleRetryAllAssets()} onReveal={(assetId) => void handleRevealAsset(assetId)} />

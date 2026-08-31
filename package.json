@@ -1,7 +1,7 @@
 {
   "name": "postflow",
   "private": false,
-  "version": "0.4.0",
+  "version": "1.0.0",
   "description": "PostFlow is a local-first writing and publishing workspace for WeChat Official Accounts.",
   "license": "MIT",
   "repository": {

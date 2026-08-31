@@ -138,6 +138,12 @@ describe('toXArticleHtml', () => {
     expect(html).not.toContain('data-md-');
     expect(html).not.toContain('<pre>');
   });
+
+  it('keeps the publish title when the body already has a different h1', () => {
+    const html = toXArticleHtml('<h1>未命名文章</h1><p>开始写作吧。</p>', 'X 渠道测试');
+    expect(html.startsWith('<h1>X 渠道测试</h1>')).toBe(true);
+    expect(html).toContain('<h1>未命名文章</h1>');
+  });
 });
 
 describe('buildXIntentUrl', () => {

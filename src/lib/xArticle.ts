@@ -144,8 +144,9 @@ export function toXArticleHtml(html: string, title = ''): string {
   });
 
   const heading = String(title || '').trim();
+  const existingHeading = doc.querySelector('h1')?.textContent?.trim() || '';
   const body = doc.body.innerHTML.trim();
-  if (heading && !doc.querySelector('h1')) {
+  if (heading && existingHeading !== heading) {
     return `<h1>${escapeHtml(heading)}</h1>${body}`;
   }
   return body;

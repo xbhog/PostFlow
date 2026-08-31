@@ -18,7 +18,10 @@ async function openPublishDialog(page: import('@playwright/test').Page) {
   });
   await expectEditorToMatch(page, /https:\/\/mock-assets\.postflow\.local\//);
   const uploaded = await getEditorMarkdown(page);
-  await setEditorMarkdown(page, `${'# 小节\n\n这是一段用来验证 X 发布渠道字数处理的正文。'.repeat(18)}\n\n${uploaded}`);
+  const imageLine = uploaded.match(/!\[[^\]]*]\([^)]+\)/)?.[0] || '';
+  const body = Array.from({ length: 18 }, () => '这是一段用来验证 X 发布渠道字数处理的正文。').join('\n\n');
+  await setEditorMarkdown(page, `# X 渠道测试\n\n## 小节\n\n${body}\n\n${imageLine}`);
+  await expect(page.getByTestId('save-status')).toContainText('已保存', { timeout: 7000 });
   await expect(page.locator('[data-testid="publish-channel-switch"]:visible')).toBeVisible();
 }
 
